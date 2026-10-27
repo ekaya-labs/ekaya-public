@@ -1,4 +1,39 @@
 {
   "version": 1,
-  "items": []
+  "items": [
+    {
+      "id": "site-login-board-vue-sqlite",
+      "kind": "template",
+      "title": "로그인과 게시판이 있는 사이트 (Vue 3 + Hono + SQLite)",
+      "description": "Ekaya Studio AI 도크의 개발 시나리오가 코드 단계에서 받는 골격 — 세션 쿠키 로그인·게시판 CRUD·vitest·schema.sql 자리·README/DEPLOY 틀",
+      "path": "templates/site-login-board-vue-sqlite/",
+      "files": [
+        ".gitignore",
+        "DEPLOY.md",
+        "README.md",
+        "package-lock.json",
+        "package.json",
+        "schema.sql",
+        "server/app.js",
+        "server/db.js",
+        "server/index.js",
+        "server/initDb.js",
+        "test/app.test.js",
+        "vite.config.js",
+        "vitest.config.js",
+        "web/index.html",
+        "web/src/App.vue",
+        "web/src/api.js",
+        "web/src/ekaya-tokens.css",
+        "web/src/i18n/index.js",
+        "web/src/i18n/ko.json",
+        "web/src/main.js",
+        "web/src/style.css",
+        "web/src/views/LoginView.vue",
+        "web/src/views/PostDetailView.vue",
+        "web/src/views/PostEditView.vue",
+        "web/src/views/PostListView.vue"
+      ]
+    }
+  ]
 }

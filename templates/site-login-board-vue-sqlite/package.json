@@ -1,0 +1,35 @@
+{
+  "name": "site-login-board",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "로그인과 게시판이 있는 작은 사이트 골격 — Vue 3 + Vite / Hono + better-sqlite3 / 세션 쿠키",
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "dev:web": "vite",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "db:init": "node server/initDb.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "better-sqlite3": "^12.4.1",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.21.5": true
+  }
+}

@@ -1,0 +1,208 @@
+/* 생성 파일 — 고치지 말 것. 정본: ekaya-brand tokens/ekaya.tokens.json → node scripts/tokens/build.mjs */
+
+/* 테마와 무관한 값 — 브랜드(0층)·회색 단계·글꼴·크기·간격·모서리 */
+:root {
+  --ek-color-brand-gold: #D4AF37;
+  --ek-color-brand-black: #000000;
+  --ek-color-brand-green-top: #0C2A20;
+  --ek-color-brand-green-bottom: #04100B;
+  --ek-gradient-brand-dark: linear-gradient(180deg, #0C2A20 0%, #04100B 100%);
+  --ek-color-gray-0: #FFFFFF;
+  --ek-color-gray-50: #F9F9F9;
+  --ek-color-gray-100: #F5F5F5;
+  --ek-color-gray-150: #F0F0F0;
+  --ek-color-gray-200: #EEEEEE;
+  --ek-color-gray-300: #E0E0E0;
+  --ek-color-gray-400: #C1C1C1;
+  --ek-color-gray-500: #8A8A8A;
+  --ek-color-gray-600: #666666;
+  --ek-color-gray-700: #4E4E4E;
+  --ek-color-gray-800: #353535;
+  --ek-color-gray-850: #262626;
+  --ek-color-gray-900: #1B1B1B;
+  --ek-color-gray-950: #111111;
+  --ek-font-family-sans: "EkayaGodic", "Pretendard Variable", "Pretendard", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --ek-font-family-mono: "JetBrains Mono", "D2Coding", "Consolas", ui-monospace, monospace;
+  --ek-font-size-xs: 11px;
+  --ek-font-size-sm: 12px;
+  --ek-font-size-md: 13px;
+  --ek-font-size-lg: 14px;
+  --ek-font-size-xl: 15px;
+  --ek-font-size-2xl: 16px;
+  --ek-font-size-3xl: 17px;
+  --ek-font-size-4xl: 20px;
+  --ek-font-size-5xl: 22px;
+  --ek-font-size-6xl: 28px;
+  --ek-font-size-7xl: 34px;
+  --ek-font-size-display: 57px;
+  --ek-font-weight-regular: 400;
+  --ek-font-weight-semibold: 600;
+  --ek-font-weight-bold: 700;
+  --ek-font-line-height-tight: 1.25;
+  --ek-font-line-height-normal: 1.5;
+  --ek-space-0: 0px;
+  --ek-space-1: 4px;
+  --ek-space-2: 8px;
+  --ek-space-3: 12px;
+  --ek-space-4: 16px;
+  --ek-space-5: 20px;
+  --ek-space-6: 24px;
+  --ek-space-8: 32px;
+  --ek-space-12: 48px;
+  --ek-radius-xs: 6px;
+  --ek-radius-sm: 8px;
+  --ek-radius-md: 12px;
+  --ek-radius-lg: 16px;
+  --ek-radius-full: 999px;
+  --ek-focus-ring-width: 2px;
+  --ek-focus-ring-offset: 2px;
+}
+
+/* 라이트(기본) — 테마 역할과 앱 강조색 등록부 */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --ek-color-bg: #FFFFFF;
+  --ek-color-bg-subtle: #F5F5F5;
+  --ek-color-surface: #FFFFFF;
+  --ek-color-border: #EEEEEE;
+  --ek-color-border-strong: #8A8A8A;
+  --ek-color-text-primary: #1B1B1B;
+  --ek-color-text-secondary: #666666;
+  --ek-color-text-tertiary: #8A8A8A;
+  --ek-color-success: #1A7F37;
+  --ek-color-on-success: #FFFFFF;
+  --ek-color-warning: #916000;
+  --ek-color-on-warning: #FFFFFF;
+  --ek-color-danger: #CF222E;
+  --ek-color-on-danger: #FFFFFF;
+  --ek-color-info: #0969DA;
+  --ek-color-on-info: #FFFFFF;
+  --ek-accent-default: #1B1B1B;
+  --ek-on-accent-default: #FFFFFF;
+  --ek-accent-learn: #F0531A;
+  --ek-on-accent-learn: #1C1B19;
+  --ek-accent-transcribe: #2F6F4F;
+  --ek-on-accent-transcribe: #FFFFFF;
+  --ek-accent-life: #0F7B7D;
+  --ek-on-accent-life: #FFFFFF;
+  --ek-accent-studio: #2563EB;
+  --ek-on-accent-studio: #FFFFFF;
+  --ek-accent-desktop: #7C3AED;
+  --ek-on-accent-desktop: #FFFFFF;
+  --ek-accent-portal: #BE185D;
+  --ek-on-accent-portal: #FFFFFF;
+  --ek-accent-media: #1B1B1B;
+  --ek-on-accent-media: #FFFFFF;
+}
+
+/* 다크 — data-theme="dark"를 주거나, 아무것도 안 주면 OS 설정을 따른다 */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --ek-color-bg: #111111;
+  --ek-color-bg-subtle: #1B1B1B;
+  --ek-color-surface: #1B1B1B;
+  --ek-color-border: #353535;
+  --ek-color-border-strong: #8A8A8A;
+  --ek-color-text-primary: #EEEEEE;
+  --ek-color-text-secondary: #C1C1C1;
+  --ek-color-text-tertiary: #8A8A8A;
+  --ek-color-success: #3FB950;
+  --ek-color-on-success: #111111;
+  --ek-color-warning: #D29922;
+  --ek-color-on-warning: #111111;
+  --ek-color-danger: #F85149;
+  --ek-color-on-danger: #111111;
+  --ek-color-info: #58A6FF;
+  --ek-color-on-info: #111111;
+  --ek-accent-default: #EEEEEE;
+  --ek-on-accent-default: #111111;
+  --ek-accent-learn: #FF5B1F;
+  --ek-on-accent-learn: #1C1B19;
+  --ek-accent-transcribe: #5FBF8F;
+  --ek-on-accent-transcribe: #111111;
+  --ek-accent-life: #2DD4D4;
+  --ek-on-accent-life: #111111;
+  --ek-accent-studio: #58A6FF;
+  --ek-on-accent-studio: #111111;
+  --ek-accent-desktop: #A78BFA;
+  --ek-on-accent-desktop: #111111;
+  --ek-accent-portal: #F472B6;
+  --ek-on-accent-portal: #111111;
+  --ek-accent-media: #EEEEEE;
+  --ek-on-accent-media: #111111;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ek-color-bg: #111111;
+    --ek-color-bg-subtle: #1B1B1B;
+    --ek-color-surface: #1B1B1B;
+    --ek-color-border: #353535;
+    --ek-color-border-strong: #8A8A8A;
+    --ek-color-text-primary: #EEEEEE;
+    --ek-color-text-secondary: #C1C1C1;
+    --ek-color-text-tertiary: #8A8A8A;
+    --ek-color-success: #3FB950;
+    --ek-color-on-success: #111111;
+    --ek-color-warning: #D29922;
+    --ek-color-on-warning: #111111;
+    --ek-color-danger: #F85149;
+    --ek-color-on-danger: #111111;
+    --ek-color-info: #58A6FF;
+    --ek-color-on-info: #111111;
+    --ek-accent-default: #EEEEEE;
+    --ek-on-accent-default: #111111;
+    --ek-accent-learn: #FF5B1F;
+    --ek-on-accent-learn: #1C1B19;
+    --ek-accent-transcribe: #5FBF8F;
+    --ek-on-accent-transcribe: #111111;
+    --ek-accent-life: #2DD4D4;
+    --ek-on-accent-life: #111111;
+    --ek-accent-studio: #58A6FF;
+    --ek-on-accent-studio: #111111;
+    --ek-accent-desktop: #A78BFA;
+    --ek-on-accent-desktop: #111111;
+    --ek-accent-portal: #F472B6;
+    --ek-on-accent-portal: #111111;
+    --ek-accent-media: #EEEEEE;
+    --ek-on-accent-media: #111111;
+  }
+}
+
+/* 앱 강조색 고르기 — <html data-ek-app="studio">. 고르지 않으면 default(중립).
+   data-theme와 같은 요소에 둔다(강조색은 그 요소의 테마 값으로 풀린다). */
+:root {
+  --ek-color-accent: var(--ek-accent-default);
+  --ek-color-on-accent: var(--ek-on-accent-default);
+  --ek-focus-ring-color: var(--ek-color-accent);
+}
+[data-ek-app="learn"] {
+  --ek-color-accent: var(--ek-accent-learn);
+  --ek-color-on-accent: var(--ek-on-accent-learn);
+}
+[data-ek-app="transcribe"] {
+  --ek-color-accent: var(--ek-accent-transcribe);
+  --ek-color-on-accent: var(--ek-on-accent-transcribe);
+}
+[data-ek-app="life"] {
+  --ek-color-accent: var(--ek-accent-life);
+  --ek-color-on-accent: var(--ek-on-accent-life);
+}
+[data-ek-app="studio"] {
+  --ek-color-accent: var(--ek-accent-studio);
+  --ek-color-on-accent: var(--ek-on-accent-studio);
+}
+[data-ek-app="desktop"] {
+  --ek-color-accent: var(--ek-accent-desktop);
+  --ek-color-on-accent: var(--ek-on-accent-desktop);
+}
+[data-ek-app="portal"] {
+  --ek-color-accent: var(--ek-accent-portal);
+  --ek-color-on-accent: var(--ek-on-accent-portal);
+}
+[data-ek-app="media"] {
+  --ek-color-accent: var(--ek-accent-media);
+  --ek-color-on-accent: var(--ek-on-accent-media);
+}
