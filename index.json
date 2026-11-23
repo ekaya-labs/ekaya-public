@@ -34,6 +34,16 @@
         "web/src/views/PostEditView.vue",
         "web/src/views/PostListView.vue"
       ]
+    },
+    {
+      "id": "studio-db-query-library",
+      "kind": "sample",
+      "title": "Ekaya Studio DB Client 쿼리 모음",
+      "description": "DB Client 쿼리 모음 패널이 받는 온라인 판 — DB 5종 메타·모니터링·락·사용자 쿼리(판 2026.11.23-2, 157개). 정본은 ekaya-studio query-library/",
+      "path": "samples/studio/db-query-library/v1/",
+      "files": [
+        "library.json"
+      ]
     }
   ]
 }
