@@ -1,0 +1,3990 @@
+{
+ "format": 1,
+ "version": "2026.11.23-2",
+ "fingerprint": "5ba1d8b9d75ccd58",
+ "minAppVersion": "0.25.1",
+ "queries": [
+  {
+   "id": "mssql.locks.blocking-chain",
+   "title": {
+    "ko": "막고 있는 세션과 막힌 세션",
+    "en": "Blocking and blocked sessions"
+   },
+   "desc": {
+    "ko": "누가 누구를 기다리는지 한 줄씩 — 기다린 시간과 양쪽 쿼리. 막는 쪽 세션부터 본다.",
+    "en": "One row per wait showing who waits on whom, how long, and both queries. Start from the blocking session."
+   },
+   "group": "locks",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "lock",
+    "blocking",
+    "session"
+   ],
+   "body": "SELECT r.session_id AS blocked_session,\n       r.blocking_session_id AS blocking_session,\n       bs.login_name AS blocking_user,\n       r.wait_type AS wait_type,\n       r.wait_time / 1000 AS waiting_seconds,\n       r.wait_resource AS wait_resource,\n       LEFT(wt.text, 200) AS blocked_query,\n       LEFT(bt.text, 200) AS blocking_query\nFROM sys.dm_exec_requests r\nJOIN sys.dm_exec_sessions bs ON bs.session_id = r.blocking_session_id\nOUTER APPLY sys.dm_exec_sql_text(r.sql_handle) wt\nLEFT JOIN sys.dm_exec_connections bc ON bc.session_id = r.blocking_session_id\nOUTER APPLY sys.dm_exec_sql_text(bc.most_recent_sql_handle) bt\nWHERE r.blocking_session_id <> 0\nORDER BY r.wait_time DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.locks.kill-session",
+   "title": {
+    "ko": "세션 끊기",
+    "en": "Kill a session"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}를 끊는다. 진행 중인 트랜잭션은 되돌려진다.",
+    "en": "Terminates session {{session_id}}. Its open transaction is rolled back."
+   },
+   "group": "locks",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "ALTER ANY CONNECTION",
+    "en": "ALTER ANY CONNECTION"
+   },
+   "tags": [
+    "kill",
+    "session"
+   ],
+   "body": "KILL {{session_id}}",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.locks.lock-waits",
+   "title": {
+    "ko": "기다리는 락",
+    "en": "Lock waits"
+   },
+   "desc": {
+    "ko": "아직 얻지 못하고 기다리는 락 전부.",
+    "en": "Every lock request that is still waiting."
+   },
+   "group": "locks",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "lock",
+    "wait"
+   ],
+   "body": "SELECT l.request_session_id AS session_id,\n       l.resource_type AS lock_type,\n       l.request_mode AS lock_mode,\n       l.request_status AS lock_status,\n       DB_NAME(l.resource_database_id) AS database_name,\n       CASE WHEN l.resource_type = 'OBJECT'\n            THEN OBJECT_NAME(l.resource_associated_entity_id, l.resource_database_id) END AS object_name,\n       l.resource_description AS resource_description\nFROM sys.dm_tran_locks l\nWHERE l.request_status = 'WAIT'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.locks.locks-by-session",
+   "title": {
+    "ko": "세션이 잡은 락",
+    "en": "Locks held by a session"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}가 잡고 있거나 기다리는 락.",
+    "en": "Locks held or requested by session {{session_id}}."
+   },
+   "group": "locks",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "lock",
+    "session"
+   ],
+   "body": "SELECT l.resource_type AS lock_type,\n       l.request_mode AS lock_mode,\n       l.request_status AS lock_status,\n       DB_NAME(l.resource_database_id) AS database_name,\n       CASE WHEN l.resource_type = 'OBJECT'\n            THEN OBJECT_NAME(l.resource_associated_entity_id, l.resource_database_id) END AS object_name,\n       l.resource_description AS resource_description\nFROM sys.dm_tran_locks l\nWHERE l.request_session_id = {{session_id}}\nORDER BY l.request_status, l.resource_type",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.check-constraints",
+   "title": {
+    "ko": "CHECK 제약",
+    "en": "Check constraints"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 CHECK 제약과 조건식.",
+    "en": "Check constraints in schema {{schema}} with their conditions."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "check",
+    "constraint"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       t.name AS table_name,\n       cc.name AS constraint_name,\n       cc.definition AS definition\nFROM sys.check_constraints cc\nJOIN sys.tables t ON t.object_id = cc.parent_object_id\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nWHERE s.name = N'{{schema}}'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.columns",
+   "title": {
+    "ko": "컬럼 — 이름·타입·NULL·기본값·코멘트",
+    "en": "Columns — name, type, null, default, comment"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}의 컬럼을 순서대로 보여 준다. 길이·정밀도·생성 열 여부도 함께.",
+    "en": "Columns of table {{table}} in order, with length, precision and generated-column info."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "type"
+   ],
+   "body": "SELECT c.column_id AS ordinal,\n       c.name AS column_name,\n       TYPE_NAME(c.user_type_id) AS data_type,\n       CASE WHEN TYPE_NAME(c.user_type_id) IN ('nchar', 'nvarchar') AND c.max_length > 0 THEN c.max_length / 2\n            ELSE c.max_length END AS max_length,\n       c.precision AS numeric_precision,\n       c.scale AS numeric_scale,\n       CASE WHEN c.is_nullable = 1 THEN 'YES' ELSE 'NO' END AS nullable,\n       OBJECT_DEFINITION(c.default_object_id) AS default_value,\n       CASE WHEN c.is_computed = 1 THEN 'computed' WHEN c.is_identity = 1 THEN 'identity' END AS generated_kind,\n       CAST(ep.value AS nvarchar(4000)) AS comments\nFROM sys.columns c\nJOIN sys.objects o ON o.object_id = c.object_id\nJOIN sys.schemas s ON s.schema_id = o.schema_id\nLEFT JOIN sys.extended_properties ep\n       ON ep.class = 1 AND ep.major_id = c.object_id AND ep.minor_id = c.column_id AND ep.name = 'MS_Description'\nWHERE s.name = N'{{schema}}' AND o.name = N'{{table}}'\nORDER BY c.column_id",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.columns-search",
+   "title": {
+    "ko": "이름으로 컬럼 찾기",
+    "en": "Find columns by name"
+   },
+   "desc": {
+    "ko": "지금 데이터베이스의 모든 스키마에서 이름에 {{pattern}}이 들어간 컬럼을 찾는다.",
+    "en": "Finds columns whose name contains {{pattern}} across all schemas of the current database."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "search"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       o.name AS table_name,\n       c.name AS column_name,\n       TYPE_NAME(c.user_type_id) AS data_type\nFROM sys.columns c\nJOIN sys.objects o ON o.object_id = c.object_id\nJOIN sys.schemas s ON s.schema_id = o.schema_id\nWHERE o.type IN ('U', 'V') AND c.name LIKE N'%{{pattern}}%'\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.foreign-keys",
+   "title": {
+    "ko": "외래 키 — 참조하는 쪽·당하는 쪽",
+    "en": "Foreign keys — both directions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}가 참조하거나 참조당하는 외래 키와 갱신·삭제 규칙.",
+    "en": "Foreign keys referencing or referenced by schema {{schema}}, with update and delete rules."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": "14",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "fk",
+    "constraint",
+    "reference"
+   ],
+   "body": "SELECT ps.name AS schema_name,\n       pt.name AS table_name,\n       fk.name AS constraint_name,\n       STRING_AGG(pc.name, ', ') WITHIN GROUP (ORDER BY fkc.constraint_column_id) AS column_names,\n       rs.name AS ref_schema,\n       rt.name AS ref_table,\n       STRING_AGG(rc.name, ', ') WITHIN GROUP (ORDER BY fkc.constraint_column_id) AS ref_column_names,\n       fk.update_referential_action_desc AS on_update,\n       fk.delete_referential_action_desc AS on_delete\nFROM sys.foreign_keys fk\nJOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id\nJOIN sys.tables pt ON pt.object_id = fk.parent_object_id\nJOIN sys.schemas ps ON ps.schema_id = pt.schema_id\nJOIN sys.columns pc ON pc.object_id = fkc.parent_object_id AND pc.column_id = fkc.parent_column_id\nJOIN sys.tables rt ON rt.object_id = fk.referenced_object_id\nJOIN sys.schemas rs ON rs.schema_id = rt.schema_id\nJOIN sys.columns rc ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id\nWHERE ps.name = N'{{schema}}' OR rs.name = N'{{schema}}'\nGROUP BY ps.name, pt.name, fk.name, rs.name, rt.name, fk.update_referential_action_desc, fk.delete_referential_action_desc\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.indexes",
+   "title": {
+    "ko": "인덱스와 컬럼",
+    "en": "Indexes and columns"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 인덱스 — 고유 여부와 컬럼 순서.",
+    "en": "Indexes in schema {{schema}} with uniqueness and column order."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": "14",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "index"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       t.name AS table_name,\n       i.name AS index_name,\n       CASE WHEN i.is_unique = 1 THEN 'YES' ELSE 'NO' END AS is_unique,\n       CASE WHEN i.is_primary_key = 1 THEN 'YES' ELSE 'NO' END AS is_primary,\n       i.type_desc AS index_type,\n       STRING_AGG(c.name + CASE WHEN ic.is_descending_key = 1 THEN ' DESC' ELSE '' END, ', ')\n         WITHIN GROUP (ORDER BY ic.key_ordinal) AS column_names\nFROM sys.indexes i\nJOIN sys.tables t ON t.object_id = i.object_id\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nJOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 0\nJOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id\nWHERE s.name = N'{{schema}}' AND i.type > 0\nGROUP BY s.name, t.name, i.name, i.is_unique, i.is_primary_key, i.type_desc\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.primary-keys",
+   "title": {
+    "ko": "기본 키·고유 키",
+    "en": "Primary and unique keys"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 PK·UK와 그 컬럼.",
+    "en": "Primary and unique keys in schema {{schema}} with their columns."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": "14",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "pk",
+    "unique",
+    "constraint"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       t.name AS table_name,\n       k.name AS constraint_name,\n       CASE k.type WHEN 'PK' THEN 'PRIMARY KEY' ELSE 'UNIQUE' END AS constraint_type,\n       STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS column_names\nFROM sys.key_constraints k\nJOIN sys.tables t ON t.object_id = k.parent_object_id\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nJOIN sys.index_columns ic ON ic.object_id = k.parent_object_id AND ic.index_id = k.unique_index_id\nJOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id\nWHERE s.name = N'{{schema}}'\nGROUP BY s.name, t.name, k.name, k.type\nORDER BY 2, 4, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.routines",
+   "title": {
+    "ko": "함수·프로시저 목록",
+    "en": "Functions and procedures"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 함수·프로시저와 인자·반환 타입.",
+    "en": "Functions and procedures in schema {{schema}} with arguments and return type."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "function",
+    "procedure"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       o.name AS routine_name,\n       o.type_desc AS routine_type,\n       o.create_date AS created,\n       o.modify_date AS last_altered\nFROM sys.objects o\nJOIN sys.schemas s ON s.schema_id = o.schema_id\nWHERE o.type IN ('P', 'FN', 'IF', 'TF', 'PC', 'FS', 'FT') AND s.name = N'{{schema}}'\nORDER BY 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.schemas",
+   "title": {
+    "ko": "스키마 목록",
+    "en": "Schemas"
+   },
+   "desc": {
+    "ko": "지금 데이터베이스의 스키마와 소유자.",
+    "en": "Schemas in the current database and their owners."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [],
+   "body": "SELECT s.name AS schema_name,\n       p.name AS owner\nFROM sys.schemas s\nJOIN sys.database_principals p ON p.principal_id = s.principal_id\nWHERE s.name NOT IN ('sys', 'INFORMATION_SCHEMA', 'guest') AND s.name NOT LIKE 'db[_]%'\nORDER BY s.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.sequences",
+   "title": {
+    "ko": "시퀀스·자동 증가 현재값",
+    "en": "Sequences and identity values"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 시퀀스와 IDENTITY 열의 현재값.",
+    "en": "Current values of sequences and IDENTITY columns in schema {{schema}}."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "sequence",
+    "identity"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       q.name AS sequence_name,\n       'sequence' AS kind,\n       CAST(q.current_value AS bigint) AS last_value,\n       CAST(q.start_value AS bigint) AS start_value,\n       CAST(q.increment AS bigint) AS increment_by\nFROM sys.sequences q\nJOIN sys.schemas s ON s.schema_id = q.schema_id\nWHERE s.name = N'{{schema}}'\nUNION ALL\nSELECT s.name,\n       t.name + N'.' + ic.name,\n       'identity',\n       CAST(ic.last_value AS bigint),\n       CAST(ic.seed_value AS bigint),\n       CAST(ic.increment_value AS bigint)\nFROM sys.identity_columns ic\nJOIN sys.tables t ON t.object_id = ic.object_id\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nWHERE s.name = N'{{schema}}'\nORDER BY 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.table-comments-missing",
+   "title": {
+    "ko": "코멘트 없는 테이블·컬럼",
+    "en": "Tables and columns without comments"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}에서 설명(MS_Description)이 없는 테이블과 컬럼. 컬럼 칸이 비면 테이블 자체다.",
+    "en": "Tables and columns in schema {{schema}} without an MS_Description. An empty column cell means the table itself."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "comment",
+    "documentation"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       t.name AS table_name,\n       CAST(NULL AS sysname) AS column_name\nFROM sys.tables t\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nWHERE s.name = N'{{schema}}'\n  AND NOT EXISTS (SELECT 1 FROM sys.extended_properties ep\n                  WHERE ep.class = 1 AND ep.major_id = t.object_id AND ep.minor_id = 0 AND ep.name = 'MS_Description')\nUNION ALL\nSELECT s.name, t.name, c.name\nFROM sys.columns c\nJOIN sys.tables t ON t.object_id = c.object_id\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nWHERE s.name = N'{{schema}}'\n  AND NOT EXISTS (SELECT 1 FROM sys.extended_properties ep\n                  WHERE ep.class = 1 AND ep.major_id = c.object_id AND ep.minor_id = c.column_id AND ep.name = 'MS_Description')\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.table-sizes",
+   "title": {
+    "ko": "크기가 큰 테이블 상위 50",
+    "en": "Largest tables (top 50)"
+   },
+   "desc": {
+    "ko": "지금 데이터베이스에서 데이터·인덱스 크기 합이 큰 테이블 50개.",
+    "en": "The 50 largest tables in the current database by data plus index size."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk"
+   ],
+   "body": "SELECT TOP 50\n       s.name AS schema_name,\n       t.name AS table_name,\n       SUM(CASE WHEN i.index_id IN (0, 1) THEN a.used_pages ELSE 0 END) * 8192 AS data_bytes,\n       SUM(CASE WHEN i.index_id > 1 THEN a.used_pages ELSE 0 END) * 8192 AS index_bytes,\n       SUM(a.used_pages) * 8192 AS total_bytes\nFROM sys.tables t\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nJOIN sys.indexes i ON i.object_id = t.object_id\nJOIN sys.partitions p ON p.object_id = i.object_id AND p.index_id = i.index_id\nJOIN sys.allocation_units a ON a.container_id = p.partition_id\nGROUP BY s.name, t.name\nORDER BY total_bytes DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.tables",
+   "title": {
+    "ko": "테이블·뷰 목록",
+    "en": "Tables and views"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블과 뷰 — 종류·행 수 추정·코멘트.",
+    "en": "Tables and views in schema {{schema}} with type, estimated rows and comment."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "table",
+    "view"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       o.name AS table_name,\n       CASE o.type WHEN 'U' THEN 'table' WHEN 'V' THEN 'view' END AS table_type,\n       (SELECT SUM(p.rows) FROM sys.partitions p WHERE p.object_id = o.object_id AND p.index_id IN (0, 1)) AS row_estimate,\n       CAST(ep.value AS nvarchar(4000)) AS comments\nFROM sys.objects o\nJOIN sys.schemas s ON s.schema_id = o.schema_id\nLEFT JOIN sys.extended_properties ep\n       ON ep.class = 1 AND ep.major_id = o.object_id AND ep.minor_id = 0 AND ep.name = 'MS_Description'\nWHERE o.type IN ('U', 'V') AND s.name = N'{{schema}}'\nORDER BY o.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.meta.views-source",
+   "title": {
+    "ko": "뷰 정의",
+    "en": "View definitions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 뷰와 정의 SQL.",
+    "en": "Views in schema {{schema}} and their SQL definitions."
+   },
+   "group": "meta",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW DEFINITION (없으면 정의 칸이 빈다)",
+    "en": "VIEW DEFINITION (없으면 정의 칸이 빈다)"
+   },
+   "tags": [
+    "view",
+    "ddl"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       v.name AS view_name,\n       OBJECT_DEFINITION(v.object_id) AS definition\nFROM sys.views v\nJOIN sys.schemas s ON s.schema_id = v.schema_id\nWHERE s.name = N'{{schema}}'\nORDER BY v.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.cache-hit",
+   "title": {
+    "ko": "버퍼 캐시 적중률",
+    "en": "Buffer cache hit ratio"
+   },
+   "desc": {
+    "ko": "버퍼 캐시 적중률과 페이지 기대 수명(초) — 수명이 짧으면 메모리가 모자라다는 뜻이다.",
+    "en": "Buffer cache hit ratio and page life expectancy in seconds — a short life means memory pressure."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "cache",
+    "buffer",
+    "memory"
+   ],
+   "body": "SELECT CAST(100.0 * a.cntr_value / NULLIF(b.cntr_value, 0) AS decimal(6, 2)) AS hit_percent,\n       pl.cntr_value AS page_life_expectancy_s\nFROM sys.dm_os_performance_counters a\nJOIN sys.dm_os_performance_counters b\n  ON b.object_name = a.object_name AND b.counter_name = 'Buffer cache hit ratio base'\nCROSS JOIN (SELECT TOP 1 cntr_value\n            FROM sys.dm_os_performance_counters\n            WHERE counter_name = 'Page life expectancy' AND object_name LIKE '%Buffer Manager%') pl\nWHERE a.counter_name = 'Buffer cache hit ratio' AND a.object_name LIKE '%Buffer Manager%'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.connections-by-user",
+   "title": {
+    "ko": "사용자·호스트별 연결 수",
+    "en": "Connections by user and host"
+   },
+   "desc": {
+    "ko": "사용자·호스트별 연결 수와 그중 지금 일하는 연결 수.",
+    "en": "Connection counts per user and host, with how many are active."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": "11",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "connection",
+    "session"
+   ],
+   "body": "SELECT s.login_name AS user_name,\n       s.host_name AS client_host,\n       DB_NAME(s.database_id) AS database_name,\n       COUNT(*) AS connections,\n       SUM(CASE WHEN s.status = 'running' THEN 1 ELSE 0 END) AS active\nFROM sys.dm_exec_sessions s\nWHERE s.is_user_process = 1\nGROUP BY s.login_name, s.host_name, s.database_id\nORDER BY connections DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.database-size",
+   "title": {
+    "ko": "데이터베이스 크기",
+    "en": "Database size"
+   },
+   "desc": {
+    "ko": "데이터베이스별 데이터·로그 파일 크기.",
+    "en": "Data and log file sizes per database."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW ANY DEFINITION (sys.master_files)",
+    "en": "VIEW ANY DEFINITION (sys.master_files)"
+   },
+   "tags": [
+    "size",
+    "disk",
+    "file"
+   ],
+   "body": "SELECT DB_NAME(f.database_id) AS database_name,\n       f.type_desc AS file_type,\n       SUM(CAST(f.size AS bigint)) * 8192 AS total_bytes\nFROM sys.master_files f\nGROUP BY f.database_id, f.type_desc\nORDER BY total_bytes DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.long-running",
+   "title": {
+    "ko": "오래 도는 쿼리",
+    "en": "Long-running queries"
+   },
+   "desc": {
+    "ko": "{{minutes}}분 넘게 돌고 있는 쿼리. {{minutes}}를 숫자로 바꿔 넣는다.",
+    "en": "Queries running longer than {{minutes}} minutes. Replace {{minutes}} with a number."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "slow",
+    "session"
+   ],
+   "body": "SELECT r.session_id AS session_id,\n       s.login_name AS user_name,\n       r.status AS state,\n       r.start_time AS query_started,\n       DATEDIFF(SECOND, r.start_time, SYSDATETIME()) AS running_seconds,\n       r.wait_type AS wait_type,\n       LEFT(t.text, 500) AS query_text\nFROM sys.dm_exec_requests r\nJOIN sys.dm_exec_sessions s ON s.session_id = r.session_id\nCROSS APPLY sys.dm_exec_sql_text(r.sql_handle) t\nWHERE s.is_user_process = 1 AND r.session_id <> @@SPID\n  AND r.start_time < DATEADD(MINUTE, -{{minutes}}, SYSDATETIME())\nORDER BY r.start_time",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.server-settings",
+   "title": {
+    "ko": "주요 서버 설정",
+    "en": "Key server settings"
+   },
+   "desc": {
+    "ko": "메모리·연결·타임아웃 등 자주 보는 서버 설정값.",
+    "en": "Commonly checked server settings such as memory, connections and timeouts."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "config",
+    "settings"
+   ],
+   "body": "SELECT c.name AS setting_name,\n       CAST(c.value_in_use AS nvarchar(100)) AS value,\n       CAST(c.description AS nvarchar(255)) AS description\nFROM sys.configurations c\nWHERE c.name IN ('max server memory (MB)', 'min server memory (MB)', 'max degree of parallelism', 'cost threshold for parallelism',\n                 'optimize for ad hoc workloads', 'remote admin connections', 'backup compression default', 'user connections')\nUNION ALL\nSELECT 'collation', CAST(SERVERPROPERTY('Collation') AS nvarchar(100)), N'server collation'\nUNION ALL\nSELECT 'edition', CAST(SERVERPROPERTY('Edition') AS nvarchar(100)), N'edition'\nORDER BY 1",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.sessions",
+   "title": {
+    "ko": "지금 세션",
+    "en": "Current sessions"
+   },
+   "desc": {
+    "ko": "연결된 세션 — 사용자·호스트·프로그램·상태·접속 시각·지금 쿼리 앞부분.",
+    "en": "Connected sessions with user, host, program, state, connect time and the start of the current query."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": "11",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "session",
+    "activity"
+   ],
+   "body": "SELECT s.session_id AS session_id,\n       s.login_name AS user_name,\n       s.host_name AS client_host,\n       s.program_name AS program,\n       s.status AS state,\n       s.login_time AS connected_at,\n       r.start_time AS query_started,\n       r.wait_type AS wait_type,\n       r.blocking_session_id AS blocked_by,\n       DB_NAME(s.database_id) AS database_name,\n       LEFT(t.text, 200) AS query_text\nFROM sys.dm_exec_sessions s\nLEFT JOIN sys.dm_exec_requests r ON r.session_id = s.session_id\nOUTER APPLY sys.dm_exec_sql_text(r.sql_handle) t\nWHERE s.is_user_process = 1\nORDER BY s.login_time",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.table-activity",
+   "title": {
+    "ko": "테이블별 읽기·쓰기 활동",
+    "en": "Table activity"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블별 읽기(찾기·훑기)·쓰기 횟수와 마지막 사용·통계 갱신 시각(서버가 켜진 뒤).",
+    "en": "Per-table seeks, scans and writes in schema {{schema}} with last use and statistics update (since startup)."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "statistics",
+    "table",
+    "index usage"
+   ],
+   "body": "SELECT s.name AS schema_name,\n       t.name AS table_name,\n       SUM(u.user_seeks) AS index_seeks,\n       SUM(u.user_scans) AS scans,\n       SUM(u.user_lookups) AS lookups,\n       SUM(u.user_updates) AS writes,\n       MAX(u.last_user_seek) AS last_seek,\n       MAX(u.last_user_scan) AS last_scan,\n       MAX(u.last_user_update) AS last_update,\n       STATS_DATE(t.object_id, 1) AS last_stats_update\nFROM sys.tables t\nJOIN sys.schemas s ON s.schema_id = t.schema_id\nLEFT JOIN sys.dm_db_index_usage_stats u ON u.object_id = t.object_id AND u.database_id = DB_ID()\nWHERE s.name = N'{{schema}}'\nGROUP BY s.name, t.name, t.object_id\nORDER BY t.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.monitor.top-queries",
+   "title": {
+    "ko": "누적 시간이 큰 쿼리 상위 20",
+    "en": "Top 20 queries by total time"
+   },
+   "desc": {
+    "ko": "계획 캐시에 남은 쿼리 중 누적 실행 시간이 큰 20개. 서버를 다시 켜거나 캐시가 비면 사라진다.",
+    "en": "The 20 cached statements with the largest total elapsed time. Lost on restart or cache flush."
+   },
+   "group": "monitor",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)",
+    "en": "VIEW SERVER STATE (2022+: VIEW SERVER PERFORMANCE STATE)"
+   },
+   "tags": [
+    "slow",
+    "statistics",
+    "plan cache"
+   ],
+   "body": "SELECT TOP 20\n       qs.execution_count AS calls,\n       qs.total_elapsed_time / 1000 AS total_ms,\n       qs.total_elapsed_time / qs.execution_count / 1000.0 AS mean_ms,\n       qs.total_rows AS rows_returned,\n       LEFT(t.text, 300) AS query_text\nFROM sys.dm_exec_query_stats qs\nCROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) t\nORDER BY qs.total_elapsed_time DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.change-password",
+   "title": {
+    "ko": "비밀번호 바꾸기",
+    "en": "Change a password"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}의 비밀번호를 {{password}}로 바꾼다.",
+    "en": "Changes the password of user {{user}} to {{password}}."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "password",
+    "login"
+   ],
+   "body": "ALTER LOGIN [{{user}}] WITH PASSWORD = N'{{password}}'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.create-user",
+   "title": {
+    "ko": "사용자 만들기",
+    "en": "Create a user"
+   },
+   "desc": {
+    "ko": "로그인 {{user}}를 만들고 지금 데이터베이스에 같은 이름의 사용자를 붙인다. 두 문장 — 스크립트로 실행한다.",
+    "en": "Creates login {{user}} and a matching user in the current database. Two statements — run as a script."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "ALTER ANY LOGIN·ALTER ANY USER",
+    "en": "ALTER ANY LOGIN·ALTER ANY USER"
+   },
+   "tags": [
+    "user",
+    "login",
+    "create"
+   ],
+   "body": "CREATE LOGIN [{{user}}] WITH PASSWORD = N'{{password}}';\nCREATE USER [{{user}}] FOR LOGIN [{{user}}];",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.drop-user",
+   "title": {
+    "ko": "사용자 지우기",
+    "en": "Drop a user"
+   },
+   "desc": {
+    "ko": "지금 데이터베이스의 사용자 {{user}}와 서버 로그인을 지운다. 다른 데이터베이스에 같은 사용자가 있으면 거기서도 먼저 지운다.",
+    "en": "Drops user {{user}} in the current database and the server login. Drop the user from other databases first."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "drop",
+    "user",
+    "login"
+   ],
+   "body": "DROP USER [{{user}}];\nDROP LOGIN [{{user}}];",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.grant-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 주기",
+    "en": "Grant read on a schema"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}에게 스키마 {{schema}}의 지금·앞으로 만들 테이블 읽기 권한을 준다.",
+    "en": "Grants user {{user}} read on current and future tables in schema {{schema}}."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "permission",
+    "schema"
+   ],
+   "body": "GRANT SELECT ON SCHEMA::[{{schema}}] TO [{{user}}]",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.list-users",
+   "title": {
+    "ko": "로그인 목록",
+    "en": "Logins"
+   },
+   "desc": {
+    "ko": "서버 로그인(SQL·Windows)과 사용 안 함·잠김·비밀번호 바꾼 때.",
+    "en": "Server logins (SQL and Windows) with disabled, locked and password change time."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "VIEW ANY DEFINITION (다른 로그인이 보이려면)",
+    "en": "VIEW ANY DEFINITION (다른 로그인이 보이려면)"
+   },
+   "tags": [
+    "user",
+    "login",
+    "account"
+   ],
+   "body": "SELECT p.name AS user_name,\n       p.type_desc AS user_type,\n       p.is_disabled AS is_disabled,\n       CAST(LOGINPROPERTY(p.name, 'IsLocked') AS int) AS is_locked,\n       CAST(LOGINPROPERTY(p.name, 'PasswordLastSetTime') AS datetime2) AS password_changed_at,\n       l.is_expiration_checked AS expiration_checked,\n       p.create_date AS created,\n       p.modify_date AS modified\nFROM sys.server_principals p\nLEFT JOIN sys.sql_logins l ON l.principal_id = p.principal_id\nWHERE p.type IN ('S', 'U', 'G') AND p.name NOT LIKE '##%'\nORDER BY p.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.lock-user",
+   "title": {
+    "ko": "로그인 사용 안 함",
+    "en": "Disable a login"
+   },
+   "desc": {
+    "ko": "로그인 {{user}}를 사용 안 함으로 둔다 — 새로 접속하지 못한다.",
+    "en": "Disables login {{user}} so it can no longer connect."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "lock",
+    "disable",
+    "login"
+   ],
+   "body": "ALTER LOGIN [{{user}}] DISABLE",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.object-privileges",
+   "title": {
+    "ko": "테이블 권한 — 누가 무엇을",
+    "en": "Who can do what on a table"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}에 권한을 받은 사용자와 그 권한.",
+    "en": "Users granted privileges on table {{table}} and what they can do."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "permission",
+    "table"
+   ],
+   "body": "SELECT pr.name AS grantee,\n       pe.state_desc AS state,\n       pe.permission_name AS privilege,\n       OBJECT_SCHEMA_NAME(pe.major_id) AS schema_name,\n       OBJECT_NAME(pe.major_id) AS object_name\nFROM sys.database_permissions pe\nJOIN sys.database_principals pr ON pr.principal_id = pe.grantee_principal_id\nWHERE pe.class = 1 AND pe.major_id = OBJECT_ID(N'{{schema}}.{{table}}')\nORDER BY 1, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.revoke-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 회수",
+    "en": "Revoke read on a schema"
+   },
+   "desc": {
+    "ko": "「스키마 읽기 권한 주기」로 준 권한을 되돌린다.",
+    "en": "Reverts the grant made by \"Grant read on a schema\"."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "revoke",
+    "permission",
+    "schema"
+   ],
+   "body": "REVOKE SELECT ON SCHEMA::[{{schema}}] FROM [{{user}}]",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.unlock-user",
+   "title": {
+    "ko": "로그인 다시 사용",
+    "en": "Enable a login"
+   },
+   "desc": {
+    "ko": "사용 안 함으로 둔 로그인 {{user}}를 다시 쓴다.",
+    "en": "Enables login {{user}} again."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "unlock",
+    "enable",
+    "login"
+   ],
+   "body": "ALTER LOGIN [{{user}}] ENABLE",
+   "copiedFrom": null
+  },
+  {
+   "id": "mssql.users.user-privileges",
+   "title": {
+    "ko": "사용자 권한 전부",
+    "en": "Privileges of a user"
+   },
+   "desc": {
+    "ko": "지금 데이터베이스에서 사용자 {{user}}가 받은 권한과 속한 데이터베이스 롤.",
+    "en": "Permissions and database role memberships of user {{user}} in the current database."
+   },
+   "group": "users",
+   "dialect": "mssql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "permission"
+   ],
+   "body": "SELECT pr.name COLLATE DATABASE_DEFAULT AS user_name,\n       pe.state_desc COLLATE DATABASE_DEFAULT AS state,\n       pe.permission_name COLLATE DATABASE_DEFAULT AS privilege,\n       pe.class_desc COLLATE DATABASE_DEFAULT AS object_type,\n       CASE pe.class WHEN 1 THEN OBJECT_SCHEMA_NAME(pe.major_id) + N'.' + OBJECT_NAME(pe.major_id)\n                     WHEN 3 THEN SCHEMA_NAME(pe.major_id)\n                     WHEN 0 THEN DB_NAME() END AS object_name\nFROM sys.database_permissions pe\nJOIN sys.database_principals pr ON pr.principal_id = pe.grantee_principal_id\nWHERE pr.name = N'{{user}}'\nUNION ALL\nSELECT m.name COLLATE DATABASE_DEFAULT, N'MEMBER', r.name COLLATE DATABASE_DEFAULT, N'ROLE', NULL\nFROM sys.database_role_members rm\nJOIN sys.database_principals r ON r.principal_id = rm.role_principal_id\nJOIN sys.database_principals m ON m.principal_id = rm.member_principal_id\nWHERE m.name = N'{{user}}'\nORDER BY 4, 5, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.locks.blocking-chain",
+   "title": {
+    "ko": "막고 있는 세션과 막힌 세션",
+    "en": "Blocking and blocked sessions"
+   },
+   "desc": {
+    "ko": "InnoDB 행 락을 누가 누구를 기다리는지 — 기다린 시간·양쪽 쿼리·끊는 문장. 막는 쪽 세션부터 본다.",
+    "en": "Who waits on whom for InnoDB row locks, with wait time, both queries and the kill statement. Start from the blocking session."
+   },
+   "group": "locks",
+   "dialect": "mySql",
+   "flavors": [
+    "mysql"
+   ],
+   "minVersion": "8.0",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "sys 스키마 SELECT·PROCESS",
+    "en": "sys 스키마 SELECT·PROCESS"
+   },
+   "tags": [
+    "lock",
+    "blocking",
+    "innodb"
+   ],
+   "body": "SELECT w.waiting_pid AS blocked_session,\n       w.wait_age_secs AS waiting_seconds,\n       w.waiting_query AS blocked_query,\n       w.locked_table AS object_name,\n       w.blocking_pid AS blocking_session,\n       w.blocking_query AS blocking_query,\n       w.sql_kill_blocking_connection AS kill_hint\nFROM sys.innodb_lock_waits w\nORDER BY w.wait_age_secs DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.locks.cancel-query",
+   "title": {
+    "ko": "쿼리 취소",
+    "en": "Cancel a query"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}의 지금 쿼리만 멈춘다. 세션(연결)은 남는다.",
+    "en": "Stops only the current query of session {{session_id}}. The session stays connected."
+   },
+   "group": "locks",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "CONNECTION_ADMIN (자기 세션이 아니면)",
+    "en": "CONNECTION_ADMIN (자기 세션이 아니면)"
+   },
+   "tags": [
+    "cancel",
+    "session"
+   ],
+   "body": "KILL QUERY {{session_id}}",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.locks.kill-session",
+   "title": {
+    "ko": "세션 끊기",
+    "en": "Kill a session"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}를 끊는다. 진행 중인 트랜잭션은 되돌려진다.",
+    "en": "Terminates session {{session_id}}. Its open transaction is rolled back."
+   },
+   "group": "locks",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "CONNECTION_ADMIN (자기 세션이 아니면)",
+    "en": "CONNECTION_ADMIN (자기 세션이 아니면)"
+   },
+   "tags": [
+    "kill",
+    "session"
+   ],
+   "body": "KILL {{session_id}}",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.locks.lock-waits",
+   "title": {
+    "ko": "기다리는 락",
+    "en": "Lock waits"
+   },
+   "desc": {
+    "ko": "아직 얻지 못하고 기다리는 락 전부.",
+    "en": "Every lock request that is still waiting."
+   },
+   "group": "locks",
+   "dialect": "mySql",
+   "flavors": [
+    "mysql"
+   ],
+   "minVersion": "8.0",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "performance_schema SELECT",
+    "en": "performance_schema SELECT"
+   },
+   "tags": [
+    "lock",
+    "wait",
+    "innodb"
+   ],
+   "body": "SELECT t.processlist_id AS session_id,\n       l.object_schema AS schema_name,\n       l.object_name AS object_name,\n       l.lock_type AS lock_type,\n       l.lock_mode AS lock_mode,\n       l.lock_status AS lock_status,\n       l.lock_data AS lock_data\nFROM performance_schema.data_locks l\nJOIN performance_schema.threads t ON t.thread_id = l.thread_id\nWHERE l.lock_status = 'WAITING'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.locks.locks-by-session",
+   "title": {
+    "ko": "세션이 잡은 락",
+    "en": "Locks held by a session"
+   },
+   "desc": {
+    "ko": "세션(연결 번호) {{session_id}}가 잡고 있거나 기다리는 InnoDB 락.",
+    "en": "InnoDB locks held or requested by session (connection id) {{session_id}}."
+   },
+   "group": "locks",
+   "dialect": "mySql",
+   "flavors": [
+    "mysql"
+   ],
+   "minVersion": "8.0",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "performance_schema SELECT",
+    "en": "performance_schema SELECT"
+   },
+   "tags": [
+    "lock",
+    "session",
+    "innodb"
+   ],
+   "body": "SELECT l.object_schema AS schema_name,\n       l.object_name AS object_name,\n       l.index_name AS index_name,\n       l.lock_type AS lock_type,\n       l.lock_mode AS lock_mode,\n       l.lock_status AS lock_status,\n       l.lock_data AS lock_data\nFROM performance_schema.data_locks l\nJOIN performance_schema.threads t ON t.thread_id = l.thread_id\nWHERE t.processlist_id = {{session_id}}",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.check-constraints",
+   "title": {
+    "ko": "CHECK 제약",
+    "en": "Check constraints"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 CHECK 제약과 조건식. CHECK 제약 표는 MySQL 8.0.16부터 있다.",
+    "en": "Check constraints in schema {{schema}}. The check constraint view exists from MySQL 8.0.16."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": "8.0.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "check",
+    "constraint"
+   ],
+   "body": "SELECT tc.table_schema AS schema_name,\n       tc.table_name AS table_name,\n       cc.constraint_name AS constraint_name,\n       cc.check_clause AS definition\nFROM information_schema.check_constraints cc\nJOIN information_schema.table_constraints tc\n  ON tc.constraint_schema = cc.constraint_schema AND tc.constraint_name = cc.constraint_name AND tc.constraint_type = 'CHECK'\nWHERE cc.constraint_schema = '{{schema}}'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.columns",
+   "title": {
+    "ko": "컬럼 — 이름·타입·NULL·기본값·코멘트",
+    "en": "Columns — name, type, null, default, comment"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}의 컬럼을 순서대로 보여 준다. 길이·정밀도·생성 열 여부도 함께.",
+    "en": "Columns of table {{table}} in order, with length, precision and generated-column info."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "type"
+   ],
+   "body": "SELECT c.ordinal_position AS ordinal,\n       c.column_name AS column_name,\n       c.column_type AS data_type,\n       c.character_maximum_length AS max_length,\n       c.numeric_precision AS numeric_precision,\n       c.numeric_scale AS numeric_scale,\n       c.is_nullable AS nullable,\n       c.column_default AS default_value,\n       CASE WHEN c.extra LIKE '%GENERATED%' AND c.extra <> 'DEFAULT_GENERATED' THEN c.extra\n            WHEN c.extra LIKE '%auto_increment%' THEN 'auto_increment' END AS generated_kind,\n       c.generation_expression AS generation_expression,\n       c.column_comment AS comments\nFROM information_schema.columns c\nWHERE c.table_schema = '{{schema}}' AND c.table_name = '{{table}}'\nORDER BY c.ordinal_position",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.columns-search",
+   "title": {
+    "ko": "이름으로 컬럼 찾기",
+    "en": "Find columns by name"
+   },
+   "desc": {
+    "ko": "모든 스키마에서 이름에 {{pattern}}이 들어간 컬럼을 찾는다.",
+    "en": "Finds columns whose name contains {{pattern}} across all schemas."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "search"
+   ],
+   "body": "SELECT c.table_schema AS schema_name,\n       c.table_name AS table_name,\n       c.column_name AS column_name,\n       c.column_type AS data_type\nFROM information_schema.columns c\nWHERE c.column_name LIKE '%{{pattern}}%'\n  AND c.table_schema NOT IN ('mysql', 'sys', 'performance_schema', 'information_schema')\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.foreign-keys",
+   "title": {
+    "ko": "외래 키 — 참조하는 쪽·당하는 쪽",
+    "en": "Foreign keys — both directions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}가 참조하거나 참조당하는 외래 키와 갱신·삭제 규칙.",
+    "en": "Foreign keys referencing or referenced by schema {{schema}}, with update and delete rules."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "fk",
+    "constraint",
+    "reference"
+   ],
+   "body": "SELECT k.table_schema AS schema_name,\n       k.table_name AS table_name,\n       k.constraint_name AS constraint_name,\n       GROUP_CONCAT(k.column_name ORDER BY k.ordinal_position SEPARATOR ', ') AS column_names,\n       k.referenced_table_schema AS ref_schema,\n       k.referenced_table_name AS ref_table,\n       GROUP_CONCAT(k.referenced_column_name ORDER BY k.ordinal_position SEPARATOR ', ') AS ref_column_names,\n       r.update_rule AS on_update,\n       r.delete_rule AS on_delete\nFROM information_schema.key_column_usage k\nJOIN information_schema.referential_constraints r\n  ON r.constraint_schema = k.constraint_schema AND r.constraint_name = k.constraint_name AND r.table_name = k.table_name\nWHERE k.referenced_table_name IS NOT NULL\n  AND (k.table_schema = '{{schema}}' OR k.referenced_table_schema = '{{schema}}')\nGROUP BY k.table_schema, k.table_name, k.constraint_name, k.referenced_table_schema, k.referenced_table_name,\n         r.update_rule, r.delete_rule\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.indexes",
+   "title": {
+    "ko": "인덱스와 컬럼",
+    "en": "Indexes and columns"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 인덱스 — 고유 여부와 컬럼 순서.",
+    "en": "Indexes in schema {{schema}} with uniqueness and column order."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "index"
+   ],
+   "body": "SELECT s.table_schema AS schema_name,\n       s.table_name AS table_name,\n       s.index_name AS index_name,\n       CASE WHEN s.non_unique = 0 THEN 'YES' ELSE 'NO' END AS is_unique,\n       CASE WHEN s.index_name = 'PRIMARY' THEN 'YES' ELSE 'NO' END AS is_primary,\n       s.index_type AS index_type,\n       GROUP_CONCAT(s.column_name ORDER BY s.seq_in_index SEPARATOR ', ') AS column_names\nFROM information_schema.statistics s\nWHERE s.table_schema = '{{schema}}'\nGROUP BY s.table_schema, s.table_name, s.index_name, s.non_unique, s.index_type\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.primary-keys",
+   "title": {
+    "ko": "기본 키·고유 키",
+    "en": "Primary and unique keys"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 PK·UK와 그 컬럼.",
+    "en": "Primary and unique keys in schema {{schema}} with their columns."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "pk",
+    "unique",
+    "constraint"
+   ],
+   "body": "SELECT tc.table_schema AS schema_name,\n       tc.table_name AS table_name,\n       tc.constraint_name AS constraint_name,\n       tc.constraint_type AS constraint_type,\n       GROUP_CONCAT(k.column_name ORDER BY k.ordinal_position SEPARATOR ', ') AS column_names\nFROM information_schema.table_constraints tc\nJOIN information_schema.key_column_usage k\n  ON k.constraint_schema = tc.constraint_schema AND k.constraint_name = tc.constraint_name AND k.table_name = tc.table_name\nWHERE tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND tc.table_schema = '{{schema}}'\nGROUP BY tc.table_schema, tc.table_name, tc.constraint_name, tc.constraint_type\nORDER BY 2, 4, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.routines",
+   "title": {
+    "ko": "함수·프로시저 목록",
+    "en": "Functions and procedures"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 함수·프로시저와 인자·반환 타입.",
+    "en": "Functions and procedures in schema {{schema}} with arguments and return type."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "function",
+    "procedure"
+   ],
+   "body": "SELECT r.routine_schema AS schema_name,\n       r.routine_name AS routine_name,\n       r.routine_type AS routine_type,\n       r.dtd_identifier AS returns,\n       r.created AS created,\n       r.last_altered AS last_altered\nFROM information_schema.routines r\nWHERE r.routine_schema = '{{schema}}'\nORDER BY 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.schemas",
+   "title": {
+    "ko": "데이터베이스(스키마) 목록",
+    "en": "Databases (schemas)"
+   },
+   "desc": {
+    "ko": "데이터베이스와 기본 문자 집합·정렬. MySQL은 스키마에 소유자가 없다.",
+    "en": "Databases with default character set and collation. MySQL schemas have no owner."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [],
+   "body": "SELECT s.schema_name AS schema_name,\n       s.default_character_set_name AS charset,\n       s.default_collation_name AS collation_name\nFROM information_schema.schemata s\nORDER BY s.schema_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.sequences",
+   "title": {
+    "ko": "자동 증가 다음 값",
+    "en": "Auto-increment next values"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}에서 AUTO_INCREMENT가 있는 테이블과 다음 값. 통계 캐시 탓에 조금 늦게 바뀔 수 있다.",
+    "en": "Tables with AUTO_INCREMENT in schema {{schema}} and their next value (may lag due to statistics caching)."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "auto_increment",
+    "identity",
+    "sequence"
+   ],
+   "body": "SELECT t.table_schema AS schema_name,\n       t.table_name AS table_name,\n       t.auto_increment AS next_value\nFROM information_schema.tables t\nWHERE t.table_schema = '{{schema}}' AND t.auto_increment IS NOT NULL\nORDER BY t.table_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.table-comments-missing",
+   "title": {
+    "ko": "코멘트 없는 테이블·컬럼",
+    "en": "Tables and columns without comments"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}에서 코멘트가 비어 있는 테이블과 컬럼. 컬럼 칸이 비면 테이블 자체다.",
+    "en": "Tables and columns in schema {{schema}} with no comment. An empty column cell means the table itself."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "comment",
+    "documentation"
+   ],
+   "body": "SELECT t.table_schema AS schema_name,\n       t.table_name AS table_name,\n       NULL AS column_name\nFROM information_schema.tables t\nWHERE t.table_schema = '{{schema}}' AND t.table_type = 'BASE TABLE' AND t.table_comment = ''\nUNION ALL\nSELECT c.table_schema, c.table_name, c.column_name\nFROM information_schema.columns c\nJOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name\nWHERE c.table_schema = '{{schema}}' AND t.table_type = 'BASE TABLE' AND c.column_comment = ''\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.table-sizes",
+   "title": {
+    "ko": "크기가 큰 테이블 상위 50",
+    "en": "Largest tables (top 50)"
+   },
+   "desc": {
+    "ko": "데이터·인덱스 크기 합이 큰 순서로 50개. 값은 통계 기준 추정치다.",
+    "en": "The 50 largest tables by data plus index size (statistics-based estimates)."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk"
+   ],
+   "body": "SELECT t.table_schema AS schema_name,\n       t.table_name AS table_name,\n       t.data_length AS data_bytes,\n       t.index_length AS index_bytes,\n       t.data_length + t.index_length AS total_bytes\nFROM information_schema.tables t\nWHERE t.table_type = 'BASE TABLE'\n  AND t.table_schema NOT IN ('mysql', 'sys', 'performance_schema', 'information_schema')\nORDER BY total_bytes DESC\nLIMIT 50",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.tables",
+   "title": {
+    "ko": "테이블·뷰 목록",
+    "en": "Tables and views"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블과 뷰 — 종류·행 수 추정·코멘트.",
+    "en": "Tables and views in schema {{schema}} with type, estimated rows and comment."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "table",
+    "view"
+   ],
+   "body": "SELECT t.table_schema AS schema_name,\n       t.table_name AS table_name,\n       t.table_type AS table_type,\n       t.table_rows AS row_estimate,\n       t.engine AS engine,\n       t.table_comment AS comments\nFROM information_schema.tables t\nWHERE t.table_schema = '{{schema}}'\nORDER BY t.table_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.meta.views-source",
+   "title": {
+    "ko": "뷰 정의",
+    "en": "View definitions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 뷰와 정의 SQL.",
+    "en": "Views in schema {{schema}} and their SQL definitions."
+   },
+   "group": "meta",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "view",
+    "ddl"
+   ],
+   "body": "SELECT v.table_schema AS schema_name,\n       v.table_name AS view_name,\n       v.view_definition AS definition\nFROM information_schema.views v\nWHERE v.table_schema = '{{schema}}'\nORDER BY v.table_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.cache-hit",
+   "title": {
+    "ko": "버퍼 캐시 적중률",
+    "en": "Buffer cache hit ratio"
+   },
+   "desc": {
+    "ko": "InnoDB 버퍼 풀에서 디스크를 읽지 않고 찾은 비율.",
+    "en": "The share of InnoDB buffer pool reads served from memory."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": [
+    "mysql"
+   ],
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "cache",
+    "buffer",
+    "innodb"
+   ],
+   "body": "SELECT r.variable_value AS read_requests,\n       d.variable_value AS disk_reads,\n       ROUND(100 * (1 - d.variable_value / NULLIF(r.variable_value, 0)), 2) AS hit_percent\nFROM performance_schema.global_status r\nJOIN performance_schema.global_status d ON d.variable_name = 'Innodb_buffer_pool_reads'\nWHERE r.variable_name = 'Innodb_buffer_pool_read_requests'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.connections-by-user",
+   "title": {
+    "ko": "사용자·호스트별 연결 수",
+    "en": "Connections by user and host"
+   },
+   "desc": {
+    "ko": "사용자·호스트별 연결 수와 그중 지금 일하는 연결 수.",
+    "en": "Connection counts per user and host, with how many are active."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "PROCESS (다른 사용자의 세션이 보이려면)",
+    "en": "PROCESS (다른 사용자의 세션이 보이려면)"
+   },
+   "tags": [
+    "connection",
+    "session"
+   ],
+   "body": "SELECT p.user AS user_name,\n       SUBSTRING_INDEX(p.host, ':', 1) AS client_host,\n       COUNT(*) AS connections,\n       SUM(p.command <> 'Sleep') AS active\nFROM information_schema.processlist p\nGROUP BY p.user, SUBSTRING_INDEX(p.host, ':', 1)\nORDER BY connections DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.database-size",
+   "title": {
+    "ko": "데이터베이스 크기",
+    "en": "Database size"
+   },
+   "desc": {
+    "ko": "데이터베이스(스키마)별 데이터·인덱스 크기와 남은 자리. 통계 기준 추정치다.",
+    "en": "Data plus index size and free space per database (statistics-based estimates)."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk"
+   ],
+   "body": "SELECT t.table_schema AS database_name,\n       SUM(t.data_length + t.index_length) AS total_bytes,\n       SUM(t.data_free) AS free_bytes\nFROM information_schema.tables t\nGROUP BY t.table_schema\nORDER BY total_bytes DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.long-running",
+   "title": {
+    "ko": "오래 도는 쿼리",
+    "en": "Long-running queries"
+   },
+   "desc": {
+    "ko": "{{minutes}}분 넘게 돌고 있는 쿼리. {{minutes}}를 숫자로 바꿔 넣는다.",
+    "en": "Queries running longer than {{minutes}} minutes. Replace {{minutes}} with a number."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "PROCESS (다른 사용자의 세션이 보이려면)",
+    "en": "PROCESS (다른 사용자의 세션이 보이려면)"
+   },
+   "tags": [
+    "slow",
+    "session"
+   ],
+   "body": "SELECT p.id AS session_id,\n       p.user AS user_name,\n       p.db AS database_name,\n       p.time AS running_seconds,\n       p.state AS wait_event,\n       LEFT(p.info, 500) AS query_text\nFROM information_schema.processlist p\nWHERE p.command <> 'Sleep' AND p.id <> CONNECTION_ID() AND p.time >= {{minutes}} * 60\nORDER BY p.time DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.replication",
+   "title": {
+    "ko": "복제 상태",
+    "en": "Replication status"
+   },
+   "desc": {
+    "ko": "이 서버가 레플리카일 때 복제 상태와 지연(Seconds_Behind_Source). 레플리카가 아니면 행이 없다.",
+    "en": "Replication state and lag (Seconds_Behind_Source) when this server is a replica. Returns nothing otherwise."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": "8.0.22",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "REPLICATION CLIENT",
+    "en": "REPLICATION CLIENT"
+   },
+   "tags": [
+    "replication",
+    "replica"
+   ],
+   "body": "SHOW REPLICA STATUS",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.server-settings",
+   "title": {
+    "ko": "주요 서버 설정",
+    "en": "Key server settings"
+   },
+   "desc": {
+    "ko": "메모리·연결·타임아웃 등 자주 보는 서버 설정값.",
+    "en": "Commonly checked server settings such as memory, connections and timeouts."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "config",
+    "settings",
+    "variables"
+   ],
+   "body": "SHOW GLOBAL VARIABLES\nWHERE Variable_name IN ('max_connections', 'innodb_buffer_pool_size', 'innodb_redo_log_capacity', 'innodb_log_file_size',\n                        'innodb_flush_log_at_trx_commit', 'sync_binlog', 'long_query_time', 'slow_query_log',\n                        'wait_timeout', 'lock_wait_timeout', 'innodb_lock_wait_timeout', 'sql_mode',\n                        'character_set_server', 'collation_server', 'time_zone', 'transaction_isolation', 'binlog_format', 'server_id')",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.sessions",
+   "title": {
+    "ko": "지금 세션",
+    "en": "Current sessions"
+   },
+   "desc": {
+    "ko": "연결된 세션 — 사용자·호스트·프로그램·상태·접속 시각·지금 쿼리 앞부분.",
+    "en": "Connected sessions with user, host, program, state, connect time and the start of the current query."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "PROCESS (다른 사용자의 세션이 보이려면)",
+    "en": "PROCESS (다른 사용자의 세션이 보이려면)"
+   },
+   "tags": [
+    "session",
+    "processlist"
+   ],
+   "body": "SELECT p.id AS session_id,\n       p.user AS user_name,\n       p.host AS client_host,\n       p.db AS database_name,\n       p.command AS state,\n       p.time AS running_seconds,\n       p.state AS wait_event,\n       LEFT(p.info, 200) AS query_text\nFROM information_schema.processlist p\nORDER BY p.time DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.table-activity",
+   "title": {
+    "ko": "테이블별 읽기·쓰기 활동",
+    "en": "Table activity"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블별 읽기·쓰기 횟수(서버가 켜진 뒤 누적).",
+    "en": "Per-table read and write counts in schema {{schema}} since the server started."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": [
+    "mysql"
+   ],
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "performance_schema 켜짐 + 그 스키마 SELECT",
+    "en": "performance_schema 켜짐 + 그 스키마 SELECT"
+   },
+   "tags": [
+    "statistics",
+    "table"
+   ],
+   "body": "SELECT s.object_schema AS schema_name,\n       s.object_name AS table_name,\n       s.count_read AS read_ops,\n       s.count_write AS write_ops,\n       s.count_fetch AS fetched_rows,\n       s.count_insert AS inserted,\n       s.count_update AS updated,\n       s.count_delete AS deleted\nFROM performance_schema.table_io_waits_summary_by_table s\nWHERE s.object_schema = '{{schema}}'\nORDER BY s.count_star DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.monitor.top-queries",
+   "title": {
+    "ko": "누적 시간이 큰 쿼리 상위 20",
+    "en": "Top 20 queries by total time"
+   },
+   "desc": {
+    "ko": "서버가 모아 둔 쿼리 통계에서 누적 실행 시간이 큰 순서로 20개.",
+    "en": "The 20 statements with the largest total execution time from server statistics."
+   },
+   "group": "monitor",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "performance_schema 켜짐 + 그 스키마 SELECT",
+    "en": "performance_schema 켜짐 + 그 스키마 SELECT"
+   },
+   "tags": [
+    "slow",
+    "statistics",
+    "digest"
+   ],
+   "body": "SELECT d.count_star AS calls,\n       ROUND(d.sum_timer_wait / 1000000000, 1) AS total_ms,\n       ROUND(d.avg_timer_wait / 1000000000, 2) AS mean_ms,\n       d.sum_rows_sent AS rows_returned,\n       d.schema_name AS schema_name,\n       LEFT(d.digest_text, 300) AS query_text\nFROM performance_schema.events_statements_summary_by_digest d\nORDER BY d.sum_timer_wait DESC\nLIMIT 20",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.change-password",
+   "title": {
+    "ko": "비밀번호 바꾸기",
+    "en": "Change a password"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}의 비밀번호를 {{password}}로 바꾼다.",
+    "en": "Changes the password of user {{user}} to {{password}}."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "password",
+    "user"
+   ],
+   "body": "ALTER USER '{{user}}'@'%' IDENTIFIED BY '{{password}}'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.create-user",
+   "title": {
+    "ko": "사용자 만들기",
+    "en": "Create a user"
+   },
+   "desc": {
+    "ko": "계정 '{{user}}'@'%'를 만든다. 특정 호스트에서만 받으려면 '%'를 바꾼다.",
+    "en": "Creates account '{{user}}'@'%'. Change '%' to allow only a specific host."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "CREATE USER",
+    "en": "CREATE USER"
+   },
+   "tags": [
+    "user",
+    "create"
+   ],
+   "body": "CREATE USER '{{user}}'@'%' IDENTIFIED BY '{{password}}'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.drop-user",
+   "title": {
+    "ko": "사용자 지우기",
+    "en": "Drop a user"
+   },
+   "desc": {
+    "ko": "계정 '{{user}}'@'%'를 지운다. 받은 권한도 같이 사라진다.",
+    "en": "Drops account '{{user}}'@'%' together with its grants."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "drop",
+    "user"
+   ],
+   "body": "DROP USER '{{user}}'@'%'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.grant-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 주기",
+    "en": "Grant read on a schema"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}에게 스키마 {{schema}}의 테이블 읽기 권한을 준다.",
+    "en": "Grants user {{user}} read access to the tables in schema {{schema}}."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "privilege",
+    "schema"
+   ],
+   "body": "GRANT SELECT, SHOW VIEW ON {{schema}}.* TO '{{user}}'@'%'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.list-users",
+   "title": {
+    "ko": "사용자·롤 목록",
+    "en": "Users and roles"
+   },
+   "desc": {
+    "ko": "계정(사용자@호스트)과 잠김·비밀번호 만료·인증 방식.",
+    "en": "Accounts (user@host) with lock state, password expiry and auth plugin."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": [
+    "mysql"
+   ],
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "mysql 스키마 SELECT",
+    "en": "mysql 스키마 SELECT"
+   },
+   "tags": [
+    "user",
+    "account"
+   ],
+   "body": "SELECT u.user AS user_name,\n       u.host AS client_host,\n       u.account_locked AS locked,\n       u.password_expired AS password_expired,\n       u.password_last_changed AS password_changed_at,\n       u.plugin AS auth_plugin\nFROM mysql.user u\nORDER BY u.user, u.host",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.lock-user",
+   "title": {
+    "ko": "계정 잠그기",
+    "en": "Lock an account"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}가 더는 접속하지 못하게 한다. 이미 붙은 세션은 그대로다.",
+    "en": "Prevents user {{user}} from connecting. Existing sessions stay."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "lock",
+    "account",
+    "user"
+   ],
+   "body": "ALTER USER '{{user}}'@'%' ACCOUNT LOCK",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.object-privileges",
+   "title": {
+    "ko": "테이블 권한 — 누가 무엇을",
+    "en": "Who can do what on a table"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}에 직접 받은 권한과 스키마 {{schema}} 전체(*)에 받은 권한.",
+    "en": "Privileges granted on table {{table}} and on all of schema {{schema}} (*)."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "privilege",
+    "table"
+   ],
+   "body": "SELECT p.grantee AS grantee,\n       p.table_schema AS schema_name,\n       p.table_name AS object_name,\n       GROUP_CONCAT(p.privilege_type ORDER BY p.privilege_type SEPARATOR ', ') AS privileges\nFROM information_schema.table_privileges p\nWHERE p.table_schema = '{{schema}}' AND p.table_name = '{{table}}'\nGROUP BY p.grantee, p.table_schema, p.table_name\nUNION ALL\nSELECT s.grantee, s.table_schema, '*', GROUP_CONCAT(s.privilege_type ORDER BY s.privilege_type SEPARATOR ', ')\nFROM information_schema.schema_privileges s\nWHERE s.table_schema = '{{schema}}'\nGROUP BY s.grantee, s.table_schema\nORDER BY 1, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.revoke-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 회수",
+    "en": "Revoke read on a schema"
+   },
+   "desc": {
+    "ko": "「스키마 읽기 권한 주기」로 준 권한을 되돌린다.",
+    "en": "Reverts the grant made by \"Grant read on a schema\"."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "revoke",
+    "privilege",
+    "schema"
+   ],
+   "body": "REVOKE SELECT, SHOW VIEW ON {{schema}}.* FROM '{{user}}'@'%'",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.unlock-user",
+   "title": {
+    "ko": "계정 풀기",
+    "en": "Unlock an account"
+   },
+   "desc": {
+    "ko": "잠근 사용자 {{user}}가 다시 접속할 수 있게 한다.",
+    "en": "Lets locked user {{user}} connect again."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "unlock",
+    "account",
+    "user"
+   ],
+   "body": "ALTER USER '{{user}}'@'%' ACCOUNT UNLOCK",
+   "copiedFrom": null
+  },
+  {
+   "id": "mySql.users.user-privileges",
+   "title": {
+    "ko": "사용자 권한 전부",
+    "en": "Privileges of a user"
+   },
+   "desc": {
+    "ko": "계정 '{{user}}'@'%'의 GRANT 문 전부. 호스트가 다르면 '%'를 바꾼다.",
+    "en": "Every GRANT statement for account '{{user}}'@'%'. Change '%' for another host."
+   },
+   "group": "users",
+   "dialect": "mySql",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "privilege"
+   ],
+   "body": "SHOW GRANTS FOR '{{user}}'@'%'",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.locks.blocking-chain",
+   "title": {
+    "ko": "막고 있는 세션과 막힌 세션",
+    "en": "Blocking and blocked sessions"
+   },
+   "desc": {
+    "ko": "누가 누구를 기다리는지 한 줄씩 — 기다린 시간과 양쪽 쿼리. 막는 쪽 세션부터 본다.",
+    "en": "One row per wait showing who waits on whom, how long, and both queries. Start from the blocking session."
+   },
+   "group": "locks",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": "11",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "lock",
+    "blocking",
+    "session"
+   ],
+   "body": "SELECT w.sid AS blocked_session,\n       w.serial# AS blocked_serial,\n       w.username AS blocked_user,\n       ROUND(w.wait_time_micro / 1000000) AS waiting_seconds,\n       w.event AS wait_event,\n       b.sid AS blocking_session,\n       b.serial# AS blocking_serial,\n       b.username AS blocking_user,\n       b.status AS blocking_state,\n       SUBSTR(q.sql_text, 1, 200) AS blocked_query\nFROM v$session w\nJOIN v$session b ON b.sid = w.blocking_session\nLEFT JOIN v$sql q ON q.sql_id = w.sql_id AND q.child_number = w.sql_child_number\nWHERE w.blocking_session IS NOT NULL\nORDER BY w.wait_time_micro DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.locks.cancel-query",
+   "title": {
+    "ko": "쿼리 취소",
+    "en": "Cancel a query"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}(시리얼 {{serial_no}})의 지금 쿼리만 멈춘다. 18c부터 된다.",
+    "en": "Stops only the current query of session {{session_id}} (serial {{serial_no}}). Available from 18c."
+   },
+   "group": "locks",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": "18",
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "ALTER SYSTEM",
+    "en": "ALTER SYSTEM"
+   },
+   "tags": [
+    "cancel",
+    "session"
+   ],
+   "body": "ALTER SYSTEM CANCEL SQL '{{session_id}}, {{serial_no}}'",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.locks.kill-session",
+   "title": {
+    "ko": "세션 끊기",
+    "en": "Kill a session"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}(시리얼 {{serial_no}})를 끊는다. 진행 중인 트랜잭션은 되돌려진다. ORA-00031(끊길 예정으로 표시)이 나와도 곧 끊긴다.",
+    "en": "Terminates session {{session_id}} (serial {{serial_no}}). Its open transaction is rolled back. ORA-00031 (marked for kill) means it is ending."
+   },
+   "group": "locks",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "ALTER SYSTEM",
+    "en": "ALTER SYSTEM"
+   },
+   "tags": [
+    "kill",
+    "session"
+   ],
+   "body": "ALTER SYSTEM KILL SESSION '{{session_id}},{{serial_no}}' IMMEDIATE",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.locks.lock-waits",
+   "title": {
+    "ko": "기다리는 락",
+    "en": "Lock waits"
+   },
+   "desc": {
+    "ko": "아직 얻지 못하고 기다리는 락 — 행 락(TX)은 막는 세션을 「막고 있는 세션」에서 본다.",
+    "en": "Lock requests still waiting. For row locks (TX) see the blocker in \"Blocking and blocked sessions\"."
+   },
+   "group": "locks",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰·dba_objects)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰·dba_objects)"
+   },
+   "tags": [
+    "lock",
+    "wait"
+   ],
+   "body": "SELECT l.sid AS session_id,\n       s.username AS user_name,\n       l.type AS lock_type,\n       l.lmode AS held_mode,\n       l.request AS requested_mode,\n       l.ctime AS seconds_in_mode,\n       o.owner || '.' || o.object_name AS object_name\nFROM v$lock l\nJOIN v$session s ON s.sid = l.sid\nLEFT JOIN dba_objects o ON o.object_id = l.id1 AND l.type = 'TM'\nWHERE l.request > 0\nORDER BY l.ctime DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.locks.locks-by-session",
+   "title": {
+    "ko": "세션이 잡은 락",
+    "en": "Locks held by a session"
+   },
+   "desc": {
+    "ko": "세션(SID) {{session_id}}가 잡고 있거나 기다리는 락. blocking_others가 1이면 이 락이 다른 세션을 막고 있다.",
+    "en": "Locks held or requested by session (SID) {{session_id}}. blocking_others = 1 means this lock blocks others."
+   },
+   "group": "locks",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰·dba_objects)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰·dba_objects)"
+   },
+   "tags": [
+    "lock",
+    "session"
+   ],
+   "body": "SELECT l.type AS lock_type,\n       l.lmode AS held_mode,\n       l.request AS requested_mode,\n       l.ctime AS seconds_in_mode,\n       l.block AS blocking_others,\n       o.owner || '.' || o.object_name AS object_name\nFROM v$lock l\nLEFT JOIN dba_objects o ON o.object_id = l.id1 AND l.type = 'TM'\nWHERE l.sid = {{session_id}}\nORDER BY l.type",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.check-constraints",
+   "title": {
+    "ko": "CHECK 제약",
+    "en": "Check constraints"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 CHECK 제약. NOT NULL도 CHECK로 잡혀 SYS_C… 이름으로 함께 나온다(name_kind가 GENERATED NAME).",
+    "en": "Check constraints in schema {{schema}}. NOT NULL constraints also appear as SYS_C… (name_kind GENERATED NAME)."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "check",
+    "constraint"
+   ],
+   "body": "SELECT k.owner AS schema_name,\n       k.table_name AS table_name,\n       k.constraint_name AS constraint_name,\n       k.search_condition AS definition,\n       k.generated AS name_kind\nFROM all_constraints k\nWHERE k.constraint_type = 'C' AND k.owner = '{{schema}}' AND k.table_name NOT LIKE 'BIN$%'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.columns",
+   "title": {
+    "ko": "컬럼 — 이름·타입·NULL·기본값·코멘트",
+    "en": "Columns — name, type, null, default, comment"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}의 컬럼을 순서대로 — 정밀도는 data_precision(NUMBER의 길이 22는 정밀도가 아니다), 가상 열도 보인다.",
+    "en": "Columns of table {{table}} in order. Precision comes from data_precision (NUMBER length 22 is not precision); virtual columns are included."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "type"
+   ],
+   "body": "SELECT c.column_id AS ordinal,\n       c.column_name AS column_name,\n       c.data_type AS data_type,\n       c.char_length AS max_length,\n       c.data_precision AS numeric_precision,\n       c.data_scale AS numeric_scale,\n       CASE c.nullable WHEN 'Y' THEN 'YES' ELSE 'NO' END AS nullable,\n       c.data_default AS default_value,\n       CASE WHEN c.virtual_column = 'YES' THEN 'virtual' END AS generated_kind,\n       m.comments AS comments\nFROM all_tab_cols c\nLEFT JOIN all_col_comments m\n       ON m.owner = c.owner AND m.table_name = c.table_name AND m.column_name = c.column_name\nWHERE c.owner = '{{schema}}' AND c.table_name = '{{table}}' AND c.hidden_column = 'NO'\nORDER BY c.column_id",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.columns-search",
+   "title": {
+    "ko": "이름으로 컬럼 찾기",
+    "en": "Find columns by name"
+   },
+   "desc": {
+    "ko": "모든 스키마에서 이름에 {{pattern}}이 들어간 컬럼을 찾는다.",
+    "en": "Finds columns whose name contains {{pattern}} across all schemas."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "search"
+   ],
+   "body": "SELECT c.owner AS schema_name,\n       c.table_name AS table_name,\n       c.column_name AS column_name,\n       c.data_type AS data_type\nFROM all_tab_columns c\nWHERE c.column_name LIKE UPPER('%{{pattern}}%')\n  AND c.owner NOT IN ('SYS', 'SYSTEM', 'XDB', 'MDSYS', 'CTXSYS', 'ORDSYS', 'OLAPSYS', 'WMSYS', 'LBACSYS',\n                      'DVSYS', 'AUDSYS', 'GSMADMIN_INTERNAL', 'OJVMSYS', 'DBSNMP', 'APPQOSSYS', 'OUTLN', 'ORDDATA')\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.foreign-keys",
+   "title": {
+    "ko": "외래 키 — 참조하는 쪽·당하는 쪽",
+    "en": "Foreign keys — both directions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}가 참조하거나 참조당하는 외래 키. Oracle에는 ON UPDATE가 없다.",
+    "en": "Foreign keys referencing or referenced by schema {{schema}}. Oracle has no ON UPDATE."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": "11.2",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "fk",
+    "constraint",
+    "reference"
+   ],
+   "body": "SELECT k.owner AS schema_name,\n       k.table_name AS table_name,\n       k.constraint_name AS constraint_name,\n       (SELECT LISTAGG(cc.column_name, ', ') WITHIN GROUP (ORDER BY cc.position)\n          FROM all_cons_columns cc WHERE cc.owner = k.owner AND cc.constraint_name = k.constraint_name) AS column_names,\n       r.owner AS ref_schema,\n       r.table_name AS ref_table,\n       (SELECT LISTAGG(rc.column_name, ', ') WITHIN GROUP (ORDER BY rc.position)\n          FROM all_cons_columns rc WHERE rc.owner = r.owner AND rc.constraint_name = r.constraint_name) AS ref_column_names,\n       'NO ACTION' AS on_update,\n       k.delete_rule AS on_delete\nFROM all_constraints k\nJOIN all_constraints r ON r.owner = k.r_owner AND r.constraint_name = k.r_constraint_name\nWHERE k.constraint_type = 'R' AND (k.owner = '{{schema}}' OR r.owner = '{{schema}}')\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.indexes",
+   "title": {
+    "ko": "인덱스와 컬럼",
+    "en": "Indexes and columns"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 인덱스 — 고유 여부와 컬럼 순서.",
+    "en": "Indexes in schema {{schema}} with uniqueness and column order."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": "11.2",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "index"
+   ],
+   "body": "SELECT i.table_owner AS schema_name,\n       i.table_name AS table_name,\n       i.index_name AS index_name,\n       CASE i.uniqueness WHEN 'UNIQUE' THEN 'YES' ELSE 'NO' END AS is_unique,\n       CASE WHEN EXISTS (SELECT 1 FROM all_constraints k\n                         WHERE k.owner = i.table_owner AND k.index_name = i.index_name AND k.constraint_type = 'P')\n            THEN 'YES' ELSE 'NO' END AS is_primary,\n       i.index_type AS index_type,\n       (SELECT LISTAGG(ic.column_name || CASE WHEN ic.descend = 'DESC' THEN ' DESC' END, ', ')\n                 WITHIN GROUP (ORDER BY ic.column_position)\n          FROM all_ind_columns ic WHERE ic.index_owner = i.owner AND ic.index_name = i.index_name) AS column_names\nFROM all_indexes i\nWHERE i.table_owner = '{{schema}}' AND i.table_name NOT LIKE 'BIN$%'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.primary-keys",
+   "title": {
+    "ko": "기본 키·고유 키",
+    "en": "Primary and unique keys"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 PK·UK와 그 컬럼.",
+    "en": "Primary and unique keys in schema {{schema}} with their columns."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": "11.2",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "pk",
+    "unique",
+    "constraint"
+   ],
+   "body": "SELECT k.owner AS schema_name,\n       k.table_name AS table_name,\n       k.constraint_name AS constraint_name,\n       CASE k.constraint_type WHEN 'P' THEN 'PRIMARY KEY' ELSE 'UNIQUE' END AS constraint_type,\n       LISTAGG(cc.column_name, ', ') WITHIN GROUP (ORDER BY cc.position) AS column_names\nFROM all_constraints k\nJOIN all_cons_columns cc\n  ON cc.owner = k.owner AND cc.constraint_name = k.constraint_name AND cc.table_name = k.table_name\nWHERE k.constraint_type IN ('P', 'U') AND k.owner = '{{schema}}' AND k.table_name NOT LIKE 'BIN$%'\nGROUP BY k.owner, k.table_name, k.constraint_name, k.constraint_type\nORDER BY 2, 4, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.routines",
+   "title": {
+    "ko": "함수·프로시저·패키지 목록",
+    "en": "Functions, procedures and packages"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 함수·프로시저·패키지와 컴파일 상태(INVALID면 다시 컴파일해야 한다).",
+    "en": "Functions, procedures and packages in schema {{schema}} with compile status (INVALID needs recompiling)."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "function",
+    "procedure",
+    "package"
+   ],
+   "body": "SELECT o.owner AS schema_name,\n       o.object_name AS routine_name,\n       LOWER(o.object_type) AS routine_type,\n       o.status AS status,\n       o.created AS created,\n       o.last_ddl_time AS last_altered\nFROM all_objects o\nWHERE o.object_type IN ('FUNCTION', 'PROCEDURE', 'PACKAGE') AND o.owner = '{{schema}}'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.schemas",
+   "title": {
+    "ko": "스키마(사용자) 목록",
+    "en": "Schemas (users)"
+   },
+   "desc": {
+    "ko": "Oracle은 사용자가 곧 스키마다. 보이는 사용자와 만든 날.",
+    "en": "In Oracle a user is a schema. Visible users and when they were created."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [],
+   "body": "SELECT u.username AS schema_name,\n       u.created AS created\nFROM all_users u\nORDER BY u.username",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.sequences",
+   "title": {
+    "ko": "시퀀스·자동 증가 현재값",
+    "en": "Sequences and identity values"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 시퀀스. last_value는 캐시만큼 앞선 값일 수 있다(last_number).",
+    "en": "Sequences in schema {{schema}}. last_value may be ahead by the cache size (last_number)."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "sequence"
+   ],
+   "body": "SELECT s.sequence_owner AS schema_name,\n       s.sequence_name AS sequence_name,\n       s.last_number AS last_value,\n       s.min_value AS start_value,\n       s.increment_by AS increment_by,\n       s.max_value AS max_value,\n       s.cycle_flag AS cycle\nFROM all_sequences s\nWHERE s.sequence_owner = '{{schema}}'\nORDER BY 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.table-comments-missing",
+   "title": {
+    "ko": "코멘트 없는 테이블·컬럼",
+    "en": "Tables and columns without comments"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}에서 코멘트가 비어 있는 테이블과 컬럼. 컬럼 칸이 비면 테이블 자체다.",
+    "en": "Tables and columns in schema {{schema}} with no comment. An empty column cell means the table itself."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "comment",
+    "documentation"
+   ],
+   "body": "SELECT c.owner AS schema_name,\n       c.table_name AS table_name,\n       NULL AS column_name\nFROM all_tab_comments c\nWHERE c.owner = '{{schema}}' AND c.comments IS NULL AND c.table_name NOT LIKE 'BIN$%'\nUNION ALL\nSELECT m.owner, m.table_name, m.column_name\nFROM all_col_comments m\nWHERE m.owner = '{{schema}}' AND m.comments IS NULL AND m.table_name NOT LIKE 'BIN$%'\nORDER BY 2, 3 NULLS FIRST",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.table-sizes",
+   "title": {
+    "ko": "크기가 큰 세그먼트 상위 50",
+    "en": "Largest segments (top 50)"
+   },
+   "desc": {
+    "ko": "테이블·인덱스·LOB 세그먼트를 크기 순으로 50개. dba_segments를 읽는다.",
+    "en": "The 50 largest table, index and LOB segments. Reads dba_segments."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE 또는 DBA (dba_segments)",
+    "en": "SELECT_CATALOG_ROLE 또는 DBA (dba_segments)"
+   },
+   "tags": [
+    "size",
+    "disk",
+    "segment"
+   ],
+   "body": "SELECT *\nFROM (SELECT s.owner AS schema_name,\n             s.segment_name AS segment_name,\n             s.segment_type AS segment_type,\n             SUM(s.bytes) AS total_bytes\n      FROM dba_segments s\n      WHERE s.owner NOT IN ('SYS', 'SYSTEM')\n      GROUP BY s.owner, s.segment_name, s.segment_type\n      ORDER BY total_bytes DESC)\nWHERE ROWNUM <= 50",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.tables",
+   "title": {
+    "ko": "테이블·뷰 목록",
+    "en": "Tables and views"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블과 뷰, 코멘트. 행 수 추정은 「크기가 큰 테이블」·「테이블별 읽기·쓰기 활동」에 있다(사전 뷰를 한 쿼리에 묶으면 11g에서 느리다).",
+    "en": "Tables and views in schema {{schema}} with comments. Row estimates are in \"Largest tables\" and \"Table activity\" (joining dictionary views is slow on 11g)."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "table",
+    "view"
+   ],
+   "body": "SELECT c.owner AS schema_name,\n       c.table_name AS table_name,\n       LOWER(c.table_type) AS table_type,\n       c.comments AS comments\nFROM all_tab_comments c\nWHERE c.owner = '{{schema}}' AND c.table_name NOT LIKE 'BIN$%'\nORDER BY c.table_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.meta.views-source",
+   "title": {
+    "ko": "뷰 정의",
+    "en": "View definitions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 뷰와 정의 SQL.",
+    "en": "Views in schema {{schema}} and their SQL definitions."
+   },
+   "group": "meta",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "view",
+    "ddl"
+   ],
+   "body": "SELECT v.owner AS schema_name,\n       v.view_name AS view_name,\n       v.text AS definition\nFROM all_views v\nWHERE v.owner = '{{schema}}'\nORDER BY v.view_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.cache-hit",
+   "title": {
+    "ko": "버퍼 캐시 적중률",
+    "en": "Buffer cache hit ratio"
+   },
+   "desc": {
+    "ko": "디스크를 읽지 않고 메모리에서 찾은 비율.",
+    "en": "The share of reads served from memory instead of disk."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "cache",
+    "buffer"
+   ],
+   "body": "SELECT ROUND(100 * (1 - phy.value / NULLIF(db.value + con.value, 0)), 2) AS hit_percent,\n       db.value AS db_block_gets,\n       con.value AS consistent_gets,\n       phy.value AS physical_reads\nFROM v$sysstat db\nCROSS JOIN v$sysstat con\nCROSS JOIN v$sysstat phy\nWHERE db.name = 'db block gets' AND con.name = 'consistent gets' AND phy.name = 'physical reads'",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.connections-by-user",
+   "title": {
+    "ko": "사용자·호스트별 연결 수",
+    "en": "Connections by user and host"
+   },
+   "desc": {
+    "ko": "사용자·호스트별 연결 수와 그중 지금 일하는 연결 수.",
+    "en": "Connection counts per user and host, with how many are active."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "connection",
+    "session"
+   ],
+   "body": "SELECT s.username AS user_name,\n       s.machine AS client_host,\n       COUNT(*) AS connections,\n       SUM(CASE WHEN s.status = 'ACTIVE' THEN 1 ELSE 0 END) AS active\nFROM v$session s\nWHERE s.type = 'USER'\nGROUP BY s.username, s.machine\nORDER BY connections DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.database-size",
+   "title": {
+    "ko": "테이블스페이스 크기·여유",
+    "en": "Tablespace size and free space"
+   },
+   "desc": {
+    "ko": "테이블스페이스별 데이터 파일 크기와 남은 자리.",
+    "en": "Data file size and free space per tablespace."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE 또는 DBA (dba_data_files)",
+    "en": "SELECT_CATALOG_ROLE 또는 DBA (dba_data_files)"
+   },
+   "tags": [
+    "size",
+    "disk",
+    "tablespace"
+   ],
+   "body": "SELECT d.tablespace_name AS tablespace_name,\n       SUM(d.bytes) AS total_bytes,\n       (SELECT SUM(f.bytes) FROM dba_free_space f WHERE f.tablespace_name = d.tablespace_name) AS free_bytes\nFROM dba_data_files d\nGROUP BY d.tablespace_name\nORDER BY total_bytes DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.long-running",
+   "title": {
+    "ko": "오래 도는 쿼리",
+    "en": "Long-running queries"
+   },
+   "desc": {
+    "ko": "{{minutes}}분 넘게 돌고 있는 쿼리. {{minutes}}를 숫자로 바꿔 넣는다.",
+    "en": "Queries running longer than {{minutes}} minutes. Replace {{minutes}} with a number."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "slow",
+    "session"
+   ],
+   "body": "SELECT s.sid AS session_id,\n       s.serial# AS serial_no,\n       s.username AS user_name,\n       s.status AS state,\n       s.sql_exec_start AS query_started,\n       s.last_call_et AS running_seconds,\n       s.event AS wait_event,\n       SUBSTR(q.sql_text, 1, 500) AS query_text\nFROM v$session s\nLEFT JOIN v$sql q ON q.sql_id = s.sql_id AND q.child_number = s.sql_child_number\nWHERE s.type = 'USER' AND s.status = 'ACTIVE'\n  AND s.sid <> SYS_CONTEXT('USERENV', 'SID')\n  AND s.last_call_et >= {{minutes}} * 60\nORDER BY s.last_call_et DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.server-settings",
+   "title": {
+    "ko": "주요 서버 설정",
+    "en": "Key server settings"
+   },
+   "desc": {
+    "ko": "메모리·연결·타임아웃 등 자주 보는 서버 설정값.",
+    "en": "Commonly checked server settings such as memory, connections and timeouts."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "config",
+    "parameter"
+   ],
+   "body": "SELECT p.name AS setting_name,\n       p.value AS value,\n       p.description AS description\nFROM v$parameter p\nWHERE p.name IN ('sga_target', 'pga_aggregate_target', 'memory_target', 'processes', 'sessions', 'open_cursors',\n                 'db_block_size', 'undo_retention', 'optimizer_mode', 'nls_language', 'nls_territory', 'compatible', 'cpu_count')\nORDER BY p.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.sessions",
+   "title": {
+    "ko": "지금 세션",
+    "en": "Current sessions"
+   },
+   "desc": {
+    "ko": "연결된 세션 — 사용자·호스트·프로그램·상태·접속 시각·지금 쿼리 앞부분.",
+    "en": "Connected sessions with user, host, program, state, connect time and the start of the current query."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "session",
+    "activity"
+   ],
+   "body": "SELECT s.sid AS session_id,\n       s.serial# AS serial_no,\n       s.username AS user_name,\n       s.machine AS client_host,\n       s.program AS program,\n       s.status AS state,\n       s.logon_time AS connected_at,\n       s.sql_exec_start AS query_started,\n       s.event AS wait_event,\n       s.blocking_session AS blocked_by,\n       SUBSTR(q.sql_text, 1, 200) AS query_text\nFROM v$session s\nLEFT JOIN v$sql q ON q.sql_id = s.sql_id AND q.child_number = s.sql_child_number\nWHERE s.type = 'USER'\nORDER BY s.logon_time",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.table-activity",
+   "title": {
+    "ko": "테이블별 읽기·쓰기 활동",
+    "en": "Table activity"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블별 행 수 추정·마지막 통계 수집과 그 뒤 바뀐 행 수(모니터링 정보가 내려온 만큼).",
+    "en": "Per-table row estimates, last statistics gathering and rows changed since (as far as monitoring info is flushed) in schema {{schema}}."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "statistics",
+    "table"
+   ],
+   "body": "SELECT t.owner AS schema_name,\n       t.table_name AS table_name,\n       t.num_rows AS row_estimate,\n       t.last_analyzed AS last_analyze,\n       m.inserts AS inserted,\n       m.updates AS updated,\n       m.deletes AS deleted,\n       m.timestamp AS modified_at\nFROM all_tables t\nLEFT JOIN all_tab_modifications m\n       ON m.table_owner = t.owner AND m.table_name = t.table_name AND m.partition_name IS NULL\nWHERE t.owner = '{{schema}}'\nORDER BY t.table_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.monitor.top-queries",
+   "title": {
+    "ko": "누적 시간이 큰 쿼리 상위 20",
+    "en": "Top 20 queries by total time"
+   },
+   "desc": {
+    "ko": "공유 풀에 남은 SQL 중 누적 실행 시간이 큰 20개.",
+    "en": "The 20 statements in the shared pool with the largest total elapsed time."
+   },
+   "group": "monitor",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE (v$ 뷰)",
+    "en": "SELECT_CATALOG_ROLE (v$ 뷰)"
+   },
+   "tags": [
+    "slow",
+    "statistics",
+    "sqlarea"
+   ],
+   "body": "SELECT *\nFROM (SELECT q.sql_id AS sql_id,\n             q.executions AS calls,\n             ROUND(q.elapsed_time / 1000) AS total_ms,\n             ROUND(q.elapsed_time / NULLIF(q.executions, 0) / 1000, 2) AS mean_ms,\n             q.rows_processed AS rows_returned,\n             SUBSTR(q.sql_text, 1, 300) AS query_text\n      FROM v$sqlarea q\n      ORDER BY q.elapsed_time DESC)\nWHERE ROWNUM <= 20",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.change-password",
+   "title": {
+    "ko": "비밀번호 바꾸기",
+    "en": "Change a password"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}의 비밀번호를 {{password}}로 바꾼다.",
+    "en": "Changes the password of user {{user}} to {{password}}."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "password",
+    "user"
+   ],
+   "body": "ALTER USER {{user}} IDENTIFIED BY \"{{password}}\"",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.create-user",
+   "title": {
+    "ko": "사용자 만들기",
+    "en": "Create a user"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}를 만들고 접속 권한(CREATE SESSION)을 준다. 두 문장 — 스크립트로 실행한다.",
+    "en": "Creates user {{user}} and grants CREATE SESSION. Two statements — run as a script."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "CREATE USER",
+    "en": "CREATE USER"
+   },
+   "tags": [
+    "user",
+    "create"
+   ],
+   "body": "CREATE USER {{user}} IDENTIFIED BY \"{{password}}\";\nGRANT CREATE SESSION TO {{user}};",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.drop-user",
+   "title": {
+    "ko": "사용자 지우기",
+    "en": "Drop a user"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}를 지운다. 가진 객체가 있으면 실패한다 — 객체까지 지우려면 CASCADE를 붙인다(되돌릴 수 없다).",
+    "en": "Drops user {{user}}. Fails while it owns objects — add CASCADE to drop them too (irreversible)."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "drop",
+    "user"
+   ],
+   "body": "DROP USER {{user}}",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.grant-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 주기",
+    "en": "Grant read on a schema"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 지금 테이블·뷰마다 SELECT를 준다(Oracle은 스키마 단위 GRANT가 없다). 나중에 만든 표는 다시 돌린다.",
+    "en": "Grants SELECT on every current table and view in schema {{schema}} (Oracle has no schema-level grant). Re-run for tables created later."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "GRANT ANY OBJECT PRIVILEGE 또는 스키마 주인",
+    "en": "GRANT ANY OBJECT PRIVILEGE 또는 스키마 주인"
+   },
+   "tags": [
+    "grant",
+    "privilege",
+    "schema",
+    "plsql"
+   ],
+   "body": "BEGIN\n  FOR o IN (SELECT object_name FROM all_objects\n            WHERE owner = '{{schema}}' AND object_type IN ('TABLE', 'VIEW') AND object_name NOT LIKE 'BIN$%') LOOP\n    EXECUTE IMMEDIATE 'GRANT SELECT ON \"{{schema}}\".\"' || o.object_name || '\" TO {{user}}';\n  END LOOP;\nEND;",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.list-users",
+   "title": {
+    "ko": "사용자·롤 목록",
+    "en": "Users and roles"
+   },
+   "desc": {
+    "ko": "사용자와 계정 상태(OPEN·LOCKED·EXPIRED)·잠긴 날·만료일.",
+    "en": "Users with account status (OPEN, LOCKED, EXPIRED), lock date and expiry."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE 또는 DBA (dba_users)",
+    "en": "SELECT_CATALOG_ROLE 또는 DBA (dba_users)"
+   },
+   "tags": [
+    "user",
+    "account"
+   ],
+   "body": "SELECT u.username AS user_name,\n       u.account_status AS status,\n       u.lock_date AS locked_at,\n       u.expiry_date AS expires_at,\n       u.created AS created,\n       u.default_tablespace AS default_tablespace,\n       u.profile AS profile\nFROM dba_users u\nORDER BY u.username",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.lock-user",
+   "title": {
+    "ko": "계정 잠그기",
+    "en": "Lock an account"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}가 더는 접속하지 못하게 한다. 이미 붙은 세션은 그대로다.",
+    "en": "Prevents user {{user}} from connecting. Existing sessions stay."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "lock",
+    "account",
+    "user"
+   ],
+   "body": "ALTER USER {{user}} ACCOUNT LOCK",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.object-privileges",
+   "title": {
+    "ko": "테이블 권한 — 누가 무엇을",
+    "en": "Who can do what on a table"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}에 권한을 받은 사용자와 그 권한.",
+    "en": "Users granted privileges on table {{table}} and what they can do."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE 또는 DBA (dba_tab_privs)",
+    "en": "SELECT_CATALOG_ROLE 또는 DBA (dba_tab_privs)"
+   },
+   "tags": [
+    "grant",
+    "privilege",
+    "table"
+   ],
+   "body": "SELECT t.grantee AS grantee,\n       t.privilege AS privilege,\n       t.grantable AS grantable,\n       t.grantor AS grantor\nFROM dba_tab_privs t\nWHERE t.owner = '{{schema}}' AND t.table_name = '{{table}}'\nORDER BY 1, 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.revoke-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 회수",
+    "en": "Revoke read on a schema"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}가 스키마 {{schema}}에서 받은 SELECT를 표마다 되돌린다.",
+    "en": "Revokes every SELECT that user {{user}} holds on schema {{schema}}, table by table."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE 또는 DBA (dba_tab_privs)",
+    "en": "SELECT_CATALOG_ROLE 또는 DBA (dba_tab_privs)"
+   },
+   "tags": [
+    "revoke",
+    "privilege",
+    "schema",
+    "plsql"
+   ],
+   "body": "BEGIN\n  FOR p IN (SELECT table_name FROM dba_tab_privs\n            WHERE grantee = UPPER('{{user}}') AND owner = '{{schema}}' AND privilege = 'SELECT') LOOP\n    EXECUTE IMMEDIATE 'REVOKE SELECT ON \"{{schema}}\".\"' || p.table_name || '\" FROM {{user}}';\n  END LOOP;\nEND;",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.unlock-user",
+   "title": {
+    "ko": "계정 풀기",
+    "en": "Unlock an account"
+   },
+   "desc": {
+    "ko": "잠근 사용자 {{user}}가 다시 접속할 수 있게 한다.",
+    "en": "Lets locked user {{user}} connect again."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "unlock",
+    "account",
+    "user"
+   ],
+   "body": "ALTER USER {{user}} ACCOUNT UNLOCK",
+   "copiedFrom": null
+  },
+  {
+   "id": "oracle.users.user-privileges",
+   "title": {
+    "ko": "사용자 권한 전부",
+    "en": "Privileges of a user"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}가 가진 권한 — 시스템·롤·객체.",
+    "en": "Every privilege held by user {{user}} — system, role and object."
+   },
+   "group": "users",
+   "dialect": "oracle",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "SELECT_CATALOG_ROLE 또는 DBA (dba_*_privs)",
+    "en": "SELECT_CATALOG_ROLE 또는 DBA (dba_*_privs)"
+   },
+   "tags": [
+    "grant",
+    "privilege"
+   ],
+   "body": "SELECT 'system' AS privilege_kind, p.privilege AS privilege, NULL AS object_name, p.admin_option AS grantable\nFROM dba_sys_privs p\nWHERE p.grantee = UPPER('{{user}}')\nUNION ALL\nSELECT 'role', r.granted_role, NULL, r.admin_option\nFROM dba_role_privs r\nWHERE r.grantee = UPPER('{{user}}')\nUNION ALL\nSELECT 'object', t.privilege, t.owner || '.' || t.table_name, t.grantable\nFROM dba_tab_privs t\nWHERE t.grantee = UPPER('{{user}}')\nORDER BY 1, 3, 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.locks.blocking-chain",
+   "title": {
+    "ko": "막고 있는 세션과 막힌 세션",
+    "en": "Blocking and blocked sessions"
+   },
+   "desc": {
+    "ko": "누가 누구를 기다리는지 한 줄씩 — 기다린 시간과 양쪽 쿼리. 막는 쪽 세션부터 본다.",
+    "en": "One row per wait showing who waits on whom, how long, and both queries. Start from the blocking session."
+   },
+   "group": "locks",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "9.6",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "pg_read_all_stats (다른 사용자의 쿼리 글이 보이려면)",
+    "en": "pg_read_all_stats (다른 사용자의 쿼리 글이 보이려면)"
+   },
+   "tags": [
+    "lock",
+    "blocking",
+    "session"
+   ],
+   "body": "SELECT w.pid AS blocked_session,\n       w.usename AS blocked_user,\n       now() - w.query_start AS waiting_for,\n       left(w.query, 200) AS blocked_query,\n       b.pid AS blocking_session,\n       b.usename AS blocking_user,\n       b.state AS blocking_state,\n       left(b.query, 200) AS blocking_query\nFROM pg_stat_activity w\nCROSS JOIN LATERAL unnest(pg_blocking_pids(w.pid)) AS bp(pid)\nJOIN pg_stat_activity b ON b.pid = bp.pid\nORDER BY waiting_for DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.locks.cancel-query",
+   "title": {
+    "ko": "쿼리 취소",
+    "en": "Cancel a query"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}의 지금 쿼리만 멈춘다. 세션(연결)은 남는다.",
+    "en": "Stops only the current query of session {{session_id}}. The session stays connected."
+   },
+   "group": "locks",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "superuser 또는 같은 사용자·pg_signal_backend",
+    "en": "superuser 또는 같은 사용자·pg_signal_backend"
+   },
+   "tags": [
+    "cancel",
+    "session"
+   ],
+   "body": "SELECT pg_cancel_backend({{session_id}}) AS cancelled",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.locks.kill-session",
+   "title": {
+    "ko": "세션 끊기",
+    "en": "Kill a session"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}를 끊는다. 진행 중인 트랜잭션은 되돌려진다.",
+    "en": "Terminates session {{session_id}}. Its open transaction is rolled back."
+   },
+   "group": "locks",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "superuser 또는 같은 사용자·pg_signal_backend",
+    "en": "superuser 또는 같은 사용자·pg_signal_backend"
+   },
+   "tags": [
+    "kill",
+    "terminate",
+    "session"
+   ],
+   "body": "SELECT pg_terminate_backend({{session_id}}) AS terminated",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.locks.lock-waits",
+   "title": {
+    "ko": "기다리는 락",
+    "en": "Lock waits"
+   },
+   "desc": {
+    "ko": "아직 얻지 못하고 기다리는 락 전부.",
+    "en": "Every lock request that is still waiting."
+   },
+   "group": "locks",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "lock",
+    "wait"
+   ],
+   "body": "SELECT l.pid AS session_id,\n       a.usename AS user_name,\n       l.locktype AS lock_type,\n       l.mode AS lock_mode,\n       l.relation::regclass::text AS object_name,\n       now() - a.query_start AS waiting_for,\n       left(a.query, 200) AS query_text\nFROM pg_locks l\nJOIN pg_stat_activity a ON a.pid = l.pid\nWHERE NOT l.granted\nORDER BY waiting_for DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.locks.locks-by-session",
+   "title": {
+    "ko": "세션이 잡은 락",
+    "en": "Locks held by a session"
+   },
+   "desc": {
+    "ko": "세션 {{session_id}}가 잡고 있거나 기다리는 락.",
+    "en": "Locks held or requested by session {{session_id}}."
+   },
+   "group": "locks",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "lock",
+    "session"
+   ],
+   "body": "SELECT l.locktype AS lock_type,\n       l.mode AS lock_mode,\n       l.granted AS granted,\n       l.relation::regclass::text AS object_name,\n       l.transactionid::text AS transaction_id\nFROM pg_locks l\nWHERE l.pid = {{session_id}}\nORDER BY l.granted, l.locktype",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.check-constraints",
+   "title": {
+    "ko": "CHECK 제약",
+    "en": "Check constraints"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 CHECK 제약과 조건식.",
+    "en": "Check constraints in schema {{schema}} with their conditions."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "check",
+    "constraint"
+   ],
+   "body": "SELECT n.nspname AS schema_name,\n       c.relname AS table_name,\n       con.conname AS constraint_name,\n       pg_get_constraintdef(con.oid) AS definition\nFROM pg_constraint con\nJOIN pg_class c ON c.oid = con.conrelid\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE con.contype = 'c' AND n.nspname = '{{schema}}'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.columns",
+   "title": {
+    "ko": "컬럼 — 이름·타입·NULL·기본값·코멘트",
+    "en": "Columns — name, type, null, default, comment"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}의 컬럼을 순서대로 보여 준다. 길이·정밀도·생성 열 여부도 함께.",
+    "en": "Columns of table {{table}} in order, with length, precision and generated-column info."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "12",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "type"
+   ],
+   "body": "SELECT a.attnum AS ordinal,\n       a.attname AS column_name,\n       format_type(a.atttypid, a.atttypmod) AS data_type,\n       ic.character_maximum_length AS max_length,\n       ic.numeric_precision AS numeric_precision,\n       ic.numeric_scale AS numeric_scale,\n       CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS nullable,\n       pg_get_expr(d.adbin, d.adrelid) AS default_value,\n       CASE WHEN a.attgenerated = 's' THEN 'stored'\n            WHEN a.attidentity IN ('a', 'd') THEN 'identity' END AS generated_kind,\n       col_description(a.attrelid, a.attnum) AS comments\nFROM pg_attribute a\nJOIN pg_class t ON t.oid = a.attrelid\nJOIN pg_namespace n ON n.oid = t.relnamespace\nLEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum\nLEFT JOIN information_schema.columns ic\n       ON ic.table_schema = n.nspname AND ic.table_name = t.relname AND ic.column_name = a.attname\nWHERE n.nspname = '{{schema}}' AND t.relname = '{{table}}' AND a.attnum > 0 AND NOT a.attisdropped\nORDER BY a.attnum",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.columns-search",
+   "title": {
+    "ko": "이름으로 컬럼 찾기",
+    "en": "Find columns by name"
+   },
+   "desc": {
+    "ko": "모든 스키마에서 이름에 {{pattern}}이 들어간 컬럼을 찾는다.",
+    "en": "Finds columns whose name contains {{pattern}} across all schemas."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "search"
+   ],
+   "body": "SELECT c.table_schema AS schema_name,\n       c.table_name AS table_name,\n       c.column_name AS column_name,\n       c.data_type AS data_type\nFROM information_schema.columns c\nWHERE c.column_name ILIKE '%{{pattern}}%'\n  AND c.table_schema NOT IN ('pg_catalog', 'information_schema')\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.foreign-keys",
+   "title": {
+    "ko": "외래 키 — 참조하는 쪽·당하는 쪽",
+    "en": "Foreign keys — both directions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}가 참조하거나 참조당하는 외래 키와 갱신·삭제 규칙.",
+    "en": "Foreign keys referencing or referenced by schema {{schema}}, with update and delete rules."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "fk",
+    "constraint",
+    "reference"
+   ],
+   "body": "SELECT cn.nspname AS schema_name,\n       c.relname AS table_name,\n       con.conname AS constraint_name,\n       (SELECT string_agg(a.attname, ', ' ORDER BY k.ord)\n          FROM unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord)\n          JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum) AS column_names,\n       rn.nspname AS ref_schema,\n       r.relname AS ref_table,\n       (SELECT string_agg(a.attname, ', ' ORDER BY k.ord)\n          FROM unnest(con.confkey) WITH ORDINALITY AS k(attnum, ord)\n          JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum) AS ref_column_names,\n       CASE con.confupdtype WHEN 'a' THEN 'NO ACTION' WHEN 'r' THEN 'RESTRICT' WHEN 'c' THEN 'CASCADE'\n                            WHEN 'n' THEN 'SET NULL' WHEN 'd' THEN 'SET DEFAULT' END AS on_update,\n       CASE con.confdeltype WHEN 'a' THEN 'NO ACTION' WHEN 'r' THEN 'RESTRICT' WHEN 'c' THEN 'CASCADE'\n                            WHEN 'n' THEN 'SET NULL' WHEN 'd' THEN 'SET DEFAULT' END AS on_delete\nFROM pg_constraint con\nJOIN pg_class c ON c.oid = con.conrelid\nJOIN pg_namespace cn ON cn.oid = c.relnamespace\nJOIN pg_class r ON r.oid = con.confrelid\nJOIN pg_namespace rn ON rn.oid = r.relnamespace\nWHERE con.contype = 'f' AND (cn.nspname = '{{schema}}' OR rn.nspname = '{{schema}}')\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.indexes",
+   "title": {
+    "ko": "인덱스와 컬럼",
+    "en": "Indexes and columns"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 인덱스 — 고유 여부와 컬럼 순서.",
+    "en": "Indexes in schema {{schema}} with uniqueness and column order."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "index"
+   ],
+   "body": "SELECT n.nspname AS schema_name,\n       t.relname AS table_name,\n       i.relname AS index_name,\n       CASE WHEN ix.indisunique THEN 'YES' ELSE 'NO' END AS is_unique,\n       CASE WHEN ix.indisprimary THEN 'YES' ELSE 'NO' END AS is_primary,\n       am.amname AS index_type,\n       array_to_string(ARRAY(SELECT pg_get_indexdef(ix.indexrelid, k, true)\n                             FROM generate_series(1, ix.indnatts) AS k ORDER BY k), ', ') AS column_names\nFROM pg_index ix\nJOIN pg_class i ON i.oid = ix.indexrelid\nJOIN pg_class t ON t.oid = ix.indrelid\nJOIN pg_namespace n ON n.oid = t.relnamespace\nJOIN pg_am am ON am.oid = i.relam\nWHERE n.nspname = '{{schema}}'\nORDER BY 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.primary-keys",
+   "title": {
+    "ko": "기본 키·고유 키",
+    "en": "Primary and unique keys"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 PK·UK와 그 컬럼.",
+    "en": "Primary and unique keys in schema {{schema}} with their columns."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "pk",
+    "unique",
+    "constraint"
+   ],
+   "body": "SELECT tc.table_schema AS schema_name,\n       tc.table_name AS table_name,\n       tc.constraint_name AS constraint_name,\n       tc.constraint_type AS constraint_type,\n       string_agg(k.column_name, ', ' ORDER BY k.ordinal_position) AS column_names\nFROM information_schema.table_constraints tc\nJOIN information_schema.key_column_usage k\n  ON k.constraint_schema = tc.constraint_schema AND k.constraint_name = tc.constraint_name AND k.table_name = tc.table_name\nWHERE tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE') AND tc.table_schema = '{{schema}}'\nGROUP BY tc.table_schema, tc.table_name, tc.constraint_name, tc.constraint_type\nORDER BY 2, 4, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.routines",
+   "title": {
+    "ko": "함수·프로시저 목록",
+    "en": "Functions and procedures"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 함수·프로시저와 인자·반환 타입.",
+    "en": "Functions and procedures in schema {{schema}} with arguments and return type."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "11",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "function",
+    "procedure"
+   ],
+   "body": "SELECT n.nspname AS schema_name,\n       p.proname AS routine_name,\n       CASE p.prokind WHEN 'f' THEN 'function' WHEN 'p' THEN 'procedure'\n                      WHEN 'a' THEN 'aggregate' WHEN 'w' THEN 'window' END AS routine_type,\n       pg_get_function_arguments(p.oid) AS arguments,\n       pg_get_function_result(p.oid) AS returns,\n       l.lanname AS language\nFROM pg_proc p\nJOIN pg_namespace n ON n.oid = p.pronamespace\nJOIN pg_language l ON l.oid = p.prolang\nWHERE n.nspname = '{{schema}}'\nORDER BY 2, 4",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.schemas",
+   "title": {
+    "ko": "스키마 목록",
+    "en": "Schemas"
+   },
+   "desc": {
+    "ko": "스키마와 소유자를 보여 준다.",
+    "en": "Lists schemas and their owners."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [],
+   "body": "SELECT n.nspname AS schema_name,\n       pg_get_userbyid(n.nspowner) AS owner,\n       obj_description(n.oid, 'pg_namespace') AS comments\nFROM pg_namespace n\nWHERE n.nspname NOT LIKE 'pg\\_%' AND n.nspname <> 'information_schema'\nORDER BY n.nspname",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.sequences",
+   "title": {
+    "ko": "시퀀스·자동 증가 현재값",
+    "en": "Sequences and identity values"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 시퀀스(또는 자동 증가) 현재값.",
+    "en": "Current values of sequences (or auto-increment) in schema {{schema}}."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "10",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "sequence",
+    "identity"
+   ],
+   "body": "SELECT s.schemaname AS schema_name,\n       s.sequencename AS sequence_name,\n       s.last_value AS last_value,\n       s.start_value AS start_value,\n       s.increment_by AS increment_by,\n       s.max_value AS max_value,\n       s.cycle AS cycle\nFROM pg_sequences s\nWHERE s.schemaname = '{{schema}}'\nORDER BY 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.table-comments-missing",
+   "title": {
+    "ko": "코멘트 없는 테이블·컬럼",
+    "en": "Tables and columns without comments"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}에서 코멘트가 비어 있는 테이블과 컬럼. 컬럼 칸이 비면 테이블 자체다.",
+    "en": "Tables and columns in schema {{schema}} with no comment. An empty column cell means the table itself."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "comment",
+    "documentation"
+   ],
+   "body": "SELECT n.nspname AS schema_name,\n       c.relname AS table_name,\n       NULL::text AS column_name\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname = '{{schema}}'\n  AND obj_description(c.oid, 'pg_class') IS NULL\nUNION ALL\nSELECT n.nspname, c.relname, a.attname::text\nFROM pg_attribute a\nJOIN pg_class c ON c.oid = a.attrelid\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.nspname = '{{schema}}'\n  AND a.attnum > 0 AND NOT a.attisdropped AND col_description(c.oid, a.attnum) IS NULL\nORDER BY 2, 3 NULLS FIRST",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.table-sizes",
+   "title": {
+    "ko": "크기가 큰 테이블 상위 50",
+    "en": "Largest tables (top 50)"
+   },
+   "desc": {
+    "ko": "데이터·인덱스 크기 합이 큰 순서로 50개.",
+    "en": "The 50 largest tables by data plus index size."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk"
+   ],
+   "body": "SELECT n.nspname AS schema_name,\n       c.relname AS table_name,\n       pg_table_size(c.oid) AS data_bytes,\n       pg_indexes_size(c.oid) AS index_bytes,\n       pg_total_relation_size(c.oid) AS total_bytes,\n       pg_size_pretty(pg_total_relation_size(c.oid)) AS total_pretty\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE c.relkind IN ('r', 'p', 'm')\n  AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname NOT LIKE 'pg\\_toast%'\nORDER BY total_bytes DESC\nLIMIT 50",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.tables",
+   "title": {
+    "ko": "테이블·뷰 목록",
+    "en": "Tables and views"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블과 뷰 — 종류·행 수 추정·코멘트.",
+    "en": "Tables and views in schema {{schema}} with type, estimated rows and comment."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "table",
+    "view"
+   ],
+   "body": "SELECT n.nspname AS schema_name,\n       c.relname AS table_name,\n       CASE c.relkind WHEN 'r' THEN 'table' WHEN 'p' THEN 'partitioned table' WHEN 'v' THEN 'view'\n                      WHEN 'm' THEN 'materialized view' WHEN 'f' THEN 'foreign table' END AS table_type,\n       c.reltuples::bigint AS row_estimate,\n       obj_description(c.oid, 'pg_class') AS comments\nFROM pg_class c\nJOIN pg_namespace n ON n.oid = c.relnamespace\nWHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND n.nspname = '{{schema}}'\nORDER BY c.relname",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.meta.views-source",
+   "title": {
+    "ko": "뷰 정의",
+    "en": "View definitions"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 뷰와 정의 SQL.",
+    "en": "Views in schema {{schema}} and their SQL definitions."
+   },
+   "group": "meta",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "view",
+    "ddl"
+   ],
+   "body": "SELECT v.schemaname AS schema_name,\n       v.viewname AS view_name,\n       v.definition AS definition\nFROM pg_views v\nWHERE v.schemaname = '{{schema}}'\nORDER BY v.viewname",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.cache-hit",
+   "title": {
+    "ko": "버퍼 캐시 적중률",
+    "en": "Buffer cache hit ratio"
+   },
+   "desc": {
+    "ko": "디스크를 읽지 않고 메모리에서 찾은 비율.",
+    "en": "The share of reads served from memory instead of disk."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "cache",
+    "buffer"
+   ],
+   "body": "SELECT d.datname AS database_name,\n       d.blks_hit AS cache_hits,\n       d.blks_read AS disk_reads,\n       round(100.0 * d.blks_hit / nullif(d.blks_hit + d.blks_read, 0), 2) AS hit_percent\nFROM pg_stat_database d\nWHERE d.datname IS NOT NULL\nORDER BY d.datname",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.connections-by-user",
+   "title": {
+    "ko": "사용자·호스트별 연결 수",
+    "en": "Connections by user and host"
+   },
+   "desc": {
+    "ko": "사용자·호스트별 연결 수와 그중 지금 일하는 연결 수.",
+    "en": "Connection counts per user and host, with how many are active."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "10",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "connection",
+    "session"
+   ],
+   "body": "SELECT a.usename AS user_name,\n       a.client_addr::text AS client_host,\n       a.datname AS database_name,\n       count(*) AS connections,\n       count(*) FILTER (WHERE a.state = 'active') AS active\nFROM pg_stat_activity a\nWHERE a.backend_type = 'client backend'\nGROUP BY a.usename, a.client_addr::text, a.datname\nORDER BY connections DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.database-size",
+   "title": {
+    "ko": "데이터베이스 크기",
+    "en": "Database size"
+   },
+   "desc": {
+    "ko": "데이터베이스(또는 테이블스페이스)별 크기.",
+    "en": "Size per database (or tablespace)."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk"
+   ],
+   "body": "SELECT d.datname AS database_name,\n       pg_database_size(d.datname) AS total_bytes,\n       pg_size_pretty(pg_database_size(d.datname)) AS total_pretty\nFROM pg_database d\nWHERE d.datallowconn\nORDER BY total_bytes DESC",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.long-running",
+   "title": {
+    "ko": "오래 도는 쿼리",
+    "en": "Long-running queries"
+   },
+   "desc": {
+    "ko": "{{minutes}}분 넘게 돌고 있는 쿼리. {{minutes}}를 숫자로 바꿔 넣는다.",
+    "en": "Queries running longer than {{minutes}} minutes. Replace {{minutes}} with a number."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "pg_read_all_stats (다른 사용자의 쿼리 글이 보이려면)",
+    "en": "pg_read_all_stats (다른 사용자의 쿼리 글이 보이려면)"
+   },
+   "tags": [
+    "slow",
+    "session"
+   ],
+   "body": "SELECT a.pid AS session_id,\n       a.usename AS user_name,\n       a.state AS state,\n       now() - a.query_start AS running_for,\n       a.wait_event AS wait_event,\n       left(a.query, 500) AS query_text\nFROM pg_stat_activity a\nWHERE a.state <> 'idle'\n  AND a.pid <> pg_backend_pid()\n  AND a.query_start < now() - make_interval(mins => {{minutes}})\nORDER BY a.query_start",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.replication",
+   "title": {
+    "ko": "복제 상태",
+    "en": "Replication status"
+   },
+   "desc": {
+    "ko": "이 서버(주 서버)에 붙은 복제 서버와 지연. 복제를 안 쓰면 행이 없다.",
+    "en": "Replicas attached to this (primary) server and their lag. Returns nothing without replication."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "10",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "replication",
+    "standby"
+   ],
+   "body": "SELECT r.pid AS session_id,\n       r.usename AS user_name,\n       r.application_name AS program,\n       r.client_addr::text AS client_host,\n       r.state AS state,\n       r.sync_state AS sync_state,\n       r.sent_lsn::text AS sent_lsn,\n       r.replay_lsn::text AS replay_lsn,\n       r.replay_lag AS replay_lag\nFROM pg_stat_replication r\nORDER BY r.application_name",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.server-settings",
+   "title": {
+    "ko": "주요 서버 설정",
+    "en": "Key server settings"
+   },
+   "desc": {
+    "ko": "메모리·연결·타임아웃 등 자주 보는 서버 설정값.",
+    "en": "Commonly checked server settings such as memory, connections and timeouts."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "config",
+    "settings"
+   ],
+   "body": "SELECT s.name AS setting_name,\n       s.setting AS value,\n       s.unit AS unit,\n       s.source AS source,\n       s.short_desc AS description\nFROM pg_settings s\nWHERE s.name IN ('max_connections', 'shared_buffers', 'work_mem', 'maintenance_work_mem', 'effective_cache_size',\n                 'wal_level', 'max_wal_size', 'checkpoint_timeout', 'autovacuum', 'statement_timeout', 'lock_timeout',\n                 'idle_in_transaction_session_timeout', 'log_min_duration_statement', 'timezone', 'server_encoding',\n                 'max_parallel_workers')\nORDER BY s.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.sessions",
+   "title": {
+    "ko": "지금 세션",
+    "en": "Current sessions"
+   },
+   "desc": {
+    "ko": "연결된 세션 — 사용자·호스트·프로그램·상태·접속 시각·지금 쿼리 앞부분.",
+    "en": "Connected sessions with user, host, program, state, connect time and the start of the current query."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "10",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "pg_read_all_stats (다른 사용자의 쿼리 글이 보이려면)",
+    "en": "pg_read_all_stats (다른 사용자의 쿼리 글이 보이려면)"
+   },
+   "tags": [
+    "session",
+    "activity"
+   ],
+   "body": "SELECT a.pid AS session_id,\n       a.usename AS user_name,\n       a.client_addr::text AS client_host,\n       a.application_name AS program,\n       a.state AS state,\n       a.backend_start AS connected_at,\n       a.query_start AS query_started,\n       a.wait_event_type AS wait_type,\n       a.wait_event AS wait_event,\n       left(a.query, 200) AS query_text\nFROM pg_stat_activity a\nWHERE a.backend_type = 'client backend'\nORDER BY a.backend_start",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.table-activity",
+   "title": {
+    "ko": "테이블별 읽기·쓰기 활동",
+    "en": "Table activity"
+   },
+   "desc": {
+    "ko": "스키마 {{schema}}의 테이블별 읽기·쓰기 횟수와 마지막 통계·정리 시각.",
+    "en": "Per-table read and write counts in schema {{schema}} with last statistics and maintenance times."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "vacuum",
+    "statistics",
+    "table"
+   ],
+   "body": "SELECT s.schemaname AS schema_name,\n       s.relname AS table_name,\n       s.seq_scan AS seq_scans,\n       s.idx_scan AS index_scans,\n       s.n_tup_ins AS inserted,\n       s.n_tup_upd AS updated,\n       s.n_tup_del AS deleted,\n       s.n_live_tup AS live_rows,\n       s.n_dead_tup AS dead_rows,\n       s.last_vacuum AS last_vacuum,\n       s.last_autovacuum AS last_autovacuum,\n       s.last_analyze AS last_analyze,\n       s.last_autoanalyze AS last_autoanalyze\nFROM pg_stat_user_tables s\nWHERE s.schemaname = '{{schema}}'\nORDER BY s.relname",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.monitor.top-queries",
+   "title": {
+    "ko": "누적 시간이 큰 쿼리 상위 20",
+    "en": "Top 20 queries by total time"
+   },
+   "desc": {
+    "ko": "서버가 모아 둔 쿼리 통계에서 누적 실행 시간이 큰 순서로 20개.",
+    "en": "The 20 statements with the largest total execution time from server statistics."
+   },
+   "group": "monitor",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": "13",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": {
+    "ko": "pg_stat_statements 확장(shared_preload_libraries)·pg_read_all_stats",
+    "en": "pg_stat_statements 확장(shared_preload_libraries)·pg_read_all_stats"
+   },
+   "tags": [
+    "slow",
+    "statistics"
+   ],
+   "body": "SELECT s.calls AS calls,\n       round(s.total_exec_time::numeric, 1) AS total_ms,\n       round(s.mean_exec_time::numeric, 2) AS mean_ms,\n       s.rows AS rows_returned,\n       left(s.query, 300) AS query_text\nFROM pg_stat_statements s\nORDER BY s.total_exec_time DESC\nLIMIT 20",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.change-password",
+   "title": {
+    "ko": "비밀번호 바꾸기",
+    "en": "Change a password"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}의 비밀번호를 {{password}}로 바꾼다.",
+    "en": "Changes the password of user {{user}} to {{password}}."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "password",
+    "user"
+   ],
+   "body": "ALTER ROLE {{user}} PASSWORD '{{password}}'",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.create-user",
+   "title": {
+    "ko": "사용자 만들기",
+    "en": "Create a user"
+   },
+   "desc": {
+    "ko": "{{user}}·{{password}}를 바꿔 넣고 실행한다.",
+    "en": "Replace {{user}} and {{password}}, then run."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": {
+    "ko": "CREATEROLE",
+    "en": "CREATEROLE"
+   },
+   "tags": [
+    "user",
+    "role",
+    "create"
+   ],
+   "body": "CREATE ROLE {{user}} LOGIN PASSWORD '{{password}}'",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.drop-user",
+   "title": {
+    "ko": "사용자 지우기",
+    "en": "Drop a user"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}를 지운다. 가진 객체·권한이 남아 있으면 실패한다 — 먼저 회수하거나 옮긴다.",
+    "en": "Drops user {{user}}. Fails while the user still owns objects or holds grants — revoke or reassign first."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "drop",
+    "user",
+    "role"
+   ],
+   "body": "DROP ROLE {{user}}",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.grant-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 주기",
+    "en": "Grant read on a schema"
+   },
+   "desc": {
+    "ko": "롤 {{user}}에게 스키마 {{schema}}의 지금 테이블과 앞으로 만들 테이블 읽기 권한을 준다. 세 문장 — 스크립트로 실행한다.",
+    "en": "Grants role {{user}} read on current and future tables in schema {{schema}}. Three statements — run as a script."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "privilege",
+    "schema"
+   ],
+   "body": "GRANT USAGE ON SCHEMA {{schema}} TO {{user}};\nGRANT SELECT ON ALL TABLES IN SCHEMA {{schema}} TO {{user}};\nALTER DEFAULT PRIVILEGES IN SCHEMA {{schema}} GRANT SELECT ON TABLES TO {{user}};",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.list-users",
+   "title": {
+    "ko": "사용자·롤 목록",
+    "en": "Users and roles"
+   },
+   "desc": {
+    "ko": "롤(로그인할 수 있으면 사용자)과 슈퍼유저·만료·속한 롤.",
+    "en": "Roles (users when they can log in) with superuser flag, expiry and memberships."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "user",
+    "role",
+    "account"
+   ],
+   "body": "SELECT r.rolname AS user_name,\n       r.rolcanlogin AS can_login,\n       r.rolsuper AS is_superuser,\n       r.rolcreaterole AS can_create_role,\n       r.rolcreatedb AS can_create_db,\n       r.rolvaliduntil AS valid_until,\n       r.rolconnlimit AS connection_limit,\n       array_to_string(ARRAY(SELECT m.rolname\n                             FROM pg_auth_members am\n                             JOIN pg_roles m ON m.oid = am.roleid\n                             WHERE am.member = r.oid\n                             ORDER BY 1), ', ') AS member_of\nFROM pg_roles r\nWHERE r.rolname NOT LIKE 'pg\\_%'\nORDER BY r.rolname",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.lock-user",
+   "title": {
+    "ko": "계정 잠그기",
+    "en": "Lock an account"
+   },
+   "desc": {
+    "ko": "사용자 {{user}}가 더는 접속하지 못하게 한다. 이미 붙은 세션은 그대로다.",
+    "en": "Prevents user {{user}} from connecting. Existing sessions stay."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "lock",
+    "account",
+    "user"
+   ],
+   "body": "ALTER ROLE {{user}} NOLOGIN",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.object-privileges",
+   "title": {
+    "ko": "테이블 권한 — 누가 무엇을",
+    "en": "Who can do what on a table"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}에 권한을 받은 사용자와 그 권한.",
+    "en": "Users granted privileges on table {{table}} and what they can do."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "privilege",
+    "table"
+   ],
+   "body": "SELECT g.grantee AS grantee,\n       g.table_schema AS schema_name,\n       g.table_name AS object_name,\n       string_agg(g.privilege_type, ', ' ORDER BY g.privilege_type) AS privileges,\n       bool_or(g.is_grantable = 'YES') AS grantable\nFROM information_schema.role_table_grants g\nWHERE g.table_schema = '{{schema}}' AND g.table_name = '{{table}}'\nGROUP BY g.grantee, g.table_schema, g.table_name\nORDER BY 1",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.revoke-read-schema",
+   "title": {
+    "ko": "스키마 읽기 권한 회수",
+    "en": "Revoke read on a schema"
+   },
+   "desc": {
+    "ko": "「스키마 읽기 권한 주기」로 준 권한을 되돌린다.",
+    "en": "Reverts the grant made by \"Grant read on a schema\"."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "revoke",
+    "privilege",
+    "schema"
+   ],
+   "body": "ALTER DEFAULT PRIVILEGES IN SCHEMA {{schema}} REVOKE SELECT ON TABLES FROM {{user}};\nREVOKE SELECT ON ALL TABLES IN SCHEMA {{schema}} FROM {{user}};\nREVOKE USAGE ON SCHEMA {{schema}} FROM {{user}};",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.unlock-user",
+   "title": {
+    "ko": "계정 풀기",
+    "en": "Unlock an account"
+   },
+   "desc": {
+    "ko": "잠근 사용자 {{user}}가 다시 접속할 수 있게 한다.",
+    "en": "Lets locked user {{user}} connect again."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "write",
+   "privilege": null,
+   "tags": [
+    "unlock",
+    "account",
+    "user"
+   ],
+   "body": "ALTER ROLE {{user}} LOGIN",
+   "copiedFrom": null
+  },
+  {
+   "id": "postgres.users.user-privileges",
+   "title": {
+    "ko": "사용자 권한 전부",
+    "en": "Privileges of a user"
+   },
+   "desc": {
+    "ko": "롤 {{user}}가 받은 테이블 권한과 스키마 권한(USAGE·CREATE).",
+    "en": "Table privileges and schema privileges (USAGE, CREATE) held by role {{user}}."
+   },
+   "group": "users",
+   "dialect": "postgres",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "grant",
+    "privilege"
+   ],
+   "body": "SELECT 'table' AS object_type,\n       g.table_schema AS schema_name,\n       g.table_name AS object_name,\n       string_agg(g.privilege_type, ', ' ORDER BY g.privilege_type) AS privileges,\n       g.grantor AS grantor\nFROM information_schema.role_table_grants g\nWHERE g.grantee = '{{user}}'\nGROUP BY g.table_schema, g.table_name, g.grantor\nUNION ALL\nSELECT 'schema',\n       n.nspname,\n       NULL,\n       concat_ws(', ',\n                 CASE WHEN has_schema_privilege('{{user}}', n.oid, 'USAGE') THEN 'USAGE' END,\n                 CASE WHEN has_schema_privilege('{{user}}', n.oid, 'CREATE') THEN 'CREATE' END),\n       NULL\nFROM pg_namespace n\nWHERE n.nspname NOT LIKE 'pg\\_%' AND n.nspname <> 'information_schema'\n  AND (has_schema_privilege('{{user}}', n.oid, 'USAGE') OR has_schema_privilege('{{user}}', n.oid, 'CREATE'))\nORDER BY 1, 2, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.columns",
+   "title": {
+    "ko": "컬럼 — 이름·타입·NULL·기본값",
+    "en": "Columns — name, type, null, default"
+   },
+   "desc": {
+    "ko": "테이블 {{table}}의 컬럼을 순서대로 — PK 위치와 생성 열 여부도 함께. SQLite는 컬럼 코멘트가 없다.",
+    "en": "Columns of table {{table}} in order, with primary-key position and generated-column info. SQLite has no column comments."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.26",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "type"
+   ],
+   "body": "SELECT c.cid + 1 AS ordinal,\n       c.name AS column_name,\n       c.type AS data_type,\n       CASE WHEN c.\"notnull\" = 1 THEN 'NO' ELSE 'YES' END AS nullable,\n       c.dflt_value AS default_value,\n       c.pk AS pk_position,\n       CASE c.hidden WHEN 2 THEN 'virtual' WHEN 3 THEN 'stored' END AS generated_kind\nFROM pragma_table_xinfo('{{table}}') AS c\nORDER BY c.cid",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.columns-search",
+   "title": {
+    "ko": "이름으로 컬럼 찾기",
+    "en": "Find columns by name"
+   },
+   "desc": {
+    "ko": "모든 테이블에서 이름에 {{pattern}}이 들어간 컬럼을 찾는다.",
+    "en": "Finds columns whose name contains {{pattern}} in every table."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "column",
+    "search"
+   ],
+   "body": "SELECT m.name AS table_name,\n       c.name AS column_name,\n       c.type AS data_type\nFROM sqlite_master AS m\nJOIN pragma_table_info(m.name) AS c\nWHERE m.type = 'table' AND c.name LIKE '%{{pattern}}%'\nORDER BY 1, 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.foreign-keys",
+   "title": {
+    "ko": "외래 키 — 참조하는 쪽·당하는 쪽",
+    "en": "Foreign keys — both directions"
+   },
+   "desc": {
+    "ko": "모든 테이블의 외래 키 — 참조 테이블·컬럼과 갱신·삭제 규칙. 참조당하는 쪽은 ref_table 칸으로 찾는다.",
+    "en": "Foreign keys of every table with referenced table, columns and rules. Filter ref_table to see the referenced side."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "fk",
+    "constraint",
+    "reference"
+   ],
+   "body": "SELECT m.name AS table_name,\n       f.id AS constraint_id,\n       group_concat(f.\"from\", ', ') AS column_names,\n       f.\"table\" AS ref_table,\n       group_concat(f.\"to\", ', ') AS ref_column_names,\n       f.on_update AS on_update,\n       f.on_delete AS on_delete\nFROM sqlite_master AS m\nJOIN pragma_foreign_key_list(m.name) AS f\nWHERE m.type = 'table'\nGROUP BY m.name, f.id\nORDER BY 1, 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.indexes",
+   "title": {
+    "ko": "인덱스와 컬럼",
+    "en": "Indexes and columns"
+   },
+   "desc": {
+    "ko": "모든 테이블의 인덱스 — 고유 여부·만든 까닭(c 직접·u UNIQUE·pk 기본 키)·컬럼.",
+    "en": "Indexes of every table with uniqueness, origin (c = created, u = UNIQUE, pk = primary key) and columns."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "index"
+   ],
+   "body": "SELECT m.name AS table_name,\n       il.name AS index_name,\n       CASE WHEN il.\"unique\" = 1 THEN 'YES' ELSE 'NO' END AS is_unique,\n       CASE il.origin WHEN 'pk' THEN 'YES' ELSE 'NO' END AS is_primary,\n       il.origin AS origin,\n       (SELECT group_concat(ii.name, ', ') FROM pragma_index_info(il.name) AS ii) AS column_names\nFROM sqlite_master AS m\nJOIN pragma_index_list(m.name) AS il\nWHERE m.type = 'table'\nORDER BY 1, 2",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.primary-keys",
+   "title": {
+    "ko": "기본 키·고유 키",
+    "en": "Primary and unique keys"
+   },
+   "desc": {
+    "ko": "모든 테이블의 PK와 UNIQUE 제약, 그 컬럼.",
+    "en": "Primary keys and UNIQUE constraints of every table with their columns."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "pk",
+    "unique",
+    "constraint"
+   ],
+   "body": "SELECT m.name AS table_name,\n       NULL AS constraint_name,\n       'PRIMARY KEY' AS constraint_type,\n       group_concat(c.name, ', ') AS column_names\nFROM sqlite_master AS m\nJOIN pragma_table_info(m.name) AS c\nWHERE m.type = 'table' AND c.pk > 0\nGROUP BY m.name\nUNION ALL\nSELECT m.name,\n       il.name,\n       'UNIQUE',\n       (SELECT group_concat(ii.name, ', ') FROM pragma_index_info(il.name) AS ii)\nFROM sqlite_master AS m\nJOIN pragma_index_list(m.name) AS il\nWHERE m.type = 'table' AND il.\"unique\" = 1 AND il.origin = 'u'\nORDER BY 1, 3",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.schemas",
+   "title": {
+    "ko": "붙은 데이터베이스 목록",
+    "en": "Attached databases"
+   },
+   "desc": {
+    "ko": "main과 ATTACH한 데이터베이스, 그 파일 경로. SQLite는 소유자가 없다.",
+    "en": "The main database and attached ones with their file paths. SQLite has no owners."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "attach",
+    "database"
+   ],
+   "body": "SELECT d.name AS schema_name,\n       d.file AS file_path\nFROM pragma_database_list AS d\nORDER BY d.seq",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.sequences",
+   "title": {
+    "ko": "AUTOINCREMENT 마지막 값",
+    "en": "AUTOINCREMENT last values"
+   },
+   "desc": {
+    "ko": "AUTOINCREMENT 테이블의 마지막 값. 그런 테이블이 하나도 없으면 sqlite_sequence가 없어 오류가 난다.",
+    "en": "Last values of AUTOINCREMENT tables. Fails when no such table exists because sqlite_sequence is missing."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "autoincrement",
+    "identity",
+    "sequence"
+   ],
+   "body": "SELECT s.name AS table_name,\n       s.seq AS last_value\nFROM sqlite_sequence AS s\nORDER BY s.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.table-sizes",
+   "title": {
+    "ko": "크기가 큰 테이블 상위 50",
+    "en": "Largest tables (top 50)"
+   },
+   "desc": {
+    "ko": "테이블·인덱스별로 차지한 페이지 크기 상위 50. dbstat 가상 테이블을 쓴다(DB Client의 SQLite에는 켜져 있다).",
+    "en": "Top 50 tables and indexes by page bytes. Uses the dbstat virtual table (enabled in the DB Client SQLite build)."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk",
+    "dbstat"
+   ],
+   "body": "SELECT s.name AS table_name,\n       SUM(s.pgsize) AS total_bytes,\n       COUNT(*) AS pages\nFROM dbstat AS s\nGROUP BY s.name\nORDER BY total_bytes DESC\nLIMIT 50",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.tables",
+   "title": {
+    "ko": "테이블·뷰 목록",
+    "en": "Tables and views"
+   },
+   "desc": {
+    "ko": "모든 스키마의 테이블과 뷰 — 종류·컬럼 수·STRICT 여부. SQLite는 행 수 추정과 코멘트가 없다.",
+    "en": "Tables and views in every schema with type, column count and STRICT flag. SQLite keeps no row estimates or comments."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.37",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "table",
+    "view"
+   ],
+   "body": "SELECT t.schema AS schema_name,\n       t.name AS table_name,\n       t.type AS table_type,\n       t.ncol AS column_count,\n       t.strict AS strict\nFROM pragma_table_list AS t\nWHERE t.name NOT LIKE 'sqlite\\_%' ESCAPE '\\'\nORDER BY t.schema, t.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.meta.views-source",
+   "title": {
+    "ko": "뷰 정의",
+    "en": "View definitions"
+   },
+   "desc": {
+    "ko": "뷰와 만든 SQL.",
+    "en": "Views and the SQL that created them."
+   },
+   "group": "meta",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": null,
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "view",
+    "ddl"
+   ],
+   "body": "SELECT m.name AS view_name,\n       m.sql AS definition\nFROM sqlite_master AS m\nWHERE m.type = 'view'\nORDER BY m.name",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.monitor.database-size",
+   "title": {
+    "ko": "데이터베이스 크기",
+    "en": "Database size"
+   },
+   "desc": {
+    "ko": "데이터베이스 파일 크기와 비어 있는 페이지 크기(VACUUM으로 돌려받을 수 있는 자리).",
+    "en": "Database file size and free page bytes (reclaimable with VACUUM)."
+   },
+   "group": "monitor",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "size",
+    "disk",
+    "vacuum"
+   ],
+   "body": "SELECT c.page_count * s.page_size AS total_bytes,\n       f.freelist_count * s.page_size AS free_bytes,\n       c.page_count AS pages,\n       s.page_size AS page_size\nFROM pragma_page_count AS c, pragma_page_size AS s, pragma_freelist_count AS f",
+   "copiedFrom": null
+  },
+  {
+   "id": "sqlite.monitor.server-settings",
+   "title": {
+    "ko": "주요 설정(PRAGMA)",
+    "en": "Key settings (PRAGMA)"
+   },
+   "desc": {
+    "ko": "저널 모드·외래 키 검사·동기화 수준 등 이 연결의 PRAGMA 값.",
+    "en": "PRAGMA values of this connection such as journal mode, foreign keys and synchronous."
+   },
+   "group": "monitor",
+   "dialect": "sqlite",
+   "flavors": null,
+   "minVersion": "3.16",
+   "maxVersion": null,
+   "kind": "read",
+   "privilege": null,
+   "tags": [
+    "pragma",
+    "config"
+   ],
+   "body": "SELECT 'journal_mode' AS setting_name, j.journal_mode AS value FROM pragma_journal_mode AS j\nUNION ALL SELECT 'foreign_keys', k.foreign_keys FROM pragma_foreign_keys AS k\nUNION ALL SELECT 'synchronous', y.synchronous FROM pragma_synchronous AS y\nUNION ALL SELECT 'busy_timeout', b.timeout FROM pragma_busy_timeout AS b\nUNION ALL SELECT 'auto_vacuum', a.auto_vacuum FROM pragma_auto_vacuum AS a\nUNION ALL SELECT 'encoding', e.encoding FROM pragma_encoding AS e\nUNION ALL SELECT 'sqlite_version', sqlite_version()",
+   "copiedFrom": null
+  }
+ ]
+}
